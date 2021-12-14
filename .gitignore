@@ -1,3 +1,4 @@
 *.img
 *.bin
 bochsout.txt
+.DS_Store
