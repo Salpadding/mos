@@ -6,6 +6,7 @@
 %macro rt 0
     mov sp, bp
     pop bp
+    mov sp, bp
 %endmacro
 
 org 0x7c00
