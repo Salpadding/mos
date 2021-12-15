@@ -19,19 +19,11 @@ mov sp, 0x7c00
 mov bp, sp
 
 
-; call cls
+call cls
 
-; push welcome
-; pre
-; call puts
-; rt
-
-; load kernal loader code into 0x9000 
 push 0x9000
-; load only one sector
 push 1
-; lba sector number = 1
-push 0
+push 1
 pre
 call read_n_sec
 rt
@@ -124,9 +116,10 @@ read_n_sec:
 ; read from 0x1f0
 ; set loop count
     mov ax, [bp + 4]
-    mov bx, 256
-    mul bx
+    mov dx, 256
+    mul dx
     mov cx, ax
+    mov dx, 0x1f0
     mov bx, [bp + 6]
 
 .read:
@@ -135,6 +128,7 @@ read_n_sec:
     add bx, 2
     loop .read
     ret
+
 
 load0 db 'Loading...' , 0
 
