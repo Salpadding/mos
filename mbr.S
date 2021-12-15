@@ -1,3 +1,13 @@
+%macro pre 0
+    push bp
+    mov bp, sp
+%endmacro
+
+%macro rt 0
+    mov sp, bp
+    pop bp
+%endmacro
+
 org 0x7c00
 
 ; initialize segments
@@ -6,10 +16,31 @@ mov ds, ax
 mov es, ax
 mov ss, ax
 mov sp, 0x7c00
+mov bp, sp
 
-call cls
-mov si, welcome
+
+; call cls
+
+; push welcome
+; pre
+; call puts
+; rt
+
+; load kernal loader code into 0x9000 
+push 0x9000
+; load only one sector
+push 1
+; lba sector number = 1
+push 0
+pre
+call read_n_sec
+rt
+
+push 0x9000
+pre
 call puts
+rt
+
 jmp $
 
 ; clearn screen
@@ -32,7 +63,9 @@ cls:
 .done:
     ret
 
+; put string
 puts:
+    mov si, [bp + 2]
     mov ax, 0xb800
     mov gs, ax
     mov bx, 0
@@ -49,7 +82,61 @@ puts:
 .done:
     ret
 
-welcome db 'Loading...' , 0
+; read_n_sec(start_sec, n, dst)
+; bp + 2, bp + 4, bp + 6
+read_n_sec:
+    ; set sector n
+    mov dx, 0x1f2
+    mov ax, [bp + 4]
+    out dx, al
+
+    ; set sector number
+    mov dx, 0x1f3
+    mov ax, [bp + 2]
+    out dx, al
+
+    mov dx, 0x1f4
+    mov al, ah
+    out dx, al
+
+    mov dx, 0x1f5
+    mov al, 0
+    out dx, al
+
+    ; enable lba mode
+    mov dx, 0x1f6
+    mov al, 0xe0
+    out dx, al
+
+    ; read command
+    mov dx, 0x1f7
+    mov al, 0x20
+    out dx, al
+
+; wait until ready
+.ready:
+    nop
+    in al, dx
+    and al, 0x88
+    cmp al, 0x08
+    jnz .ready
+
+; read from 0x1f0
+; set loop count
+    mov ax, [bp + 4]
+    mov bx, 256
+    mul bx
+    mov cx, ax
+    mov bx, [bp + 6]
+
+.read:
+    in ax, dx
+    mov [bx], ax
+    add bx, 2
+    loop .read
+    ret
+
+load0 db 'Loading...' , 0
 
 times 510-($-$$) db 0
 dw 0AA55h
