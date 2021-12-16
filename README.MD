@@ -24,8 +24,7 @@ bximage
 3. compile boot loader
 
 ```sh
-nasm -o mbr.bin mbr.S
-dd if=mbr.bin of=hd60M.img bs=512 count=1 conv=notrunc
+./debug.sh
 ```
 
 4. run bochs
