@@ -166,5 +166,33 @@ loading db 'Loading...' , 0
 msg db 'Protect mode' , 0
 
 [bits 32]
+; clear screen in protect mode
+cls_p: 
+    mov ax, SELECTOR_VIDEO
+    mov gs, ax
+    mov bx, 0
+    jmp .lp
+.lp:
+    mov byte gs:[bx], ' '
+    add bx, 1
+    cmp bx, 0x8000
+    jz  .done
+    mov byte gs:[bx], 0xf
+    add bx, 1
+    cmp bx, 0x8000
+    jz  .done
+    jmp .lp
+.done:
+    ret
 p_mode_start:
+    ; initialize data
+    mov ax, SELECTOR_DATA
+    mov ds, ax
+    mov es, ax
+    mov ss, ax
+
+    mov esp, LOADER_BASE_ADDR
+
+    call cls_p
+
     jmp $
