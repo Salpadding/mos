@@ -189,13 +189,11 @@ puts_p:
     jmp .lp
 .lp:
     lodsb
-    nop
+    mov ah, 0xf
     or al, al
     jz .done
-    mov byte [gs:ebx], al
-    add ebx, 1
-    mov byte [gs:ebx], 0xf
-    add ebx, 1
+    mov [gs:ebx], ax
+    add ebx, 2
     jmp .lp
 .done:
     ret
