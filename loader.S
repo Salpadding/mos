@@ -2,18 +2,11 @@
 SECTION LOADER vstart=LOADER_BASE_ADDR
 
 ; clear screen
-call cls
-push loading
-pre 
-call puts
-rt
-
 jmp protect
 
 ; segment descriptors
 gdt_base:
-    dd 0 
-    dd 0
+    dq 0 
 
 ; define a code segment limit = 0xfffff * 4kb = 4G, only executable
 ; base = 0
@@ -93,26 +86,27 @@ data_vedio_desc:
     ; base 23-31
     db 0
 
-GDT_SIZE equ $ - gdt_base
-GDT_LIMIT equ GDT_SIZE - 1
+gdt_end:
 
-times 60 dq 0
-
-SELECTOR_CODE equ (1<<3) + TI_GDT + RPL0
-SELECTOR_DATA equ (2<<3) + TI_GDT + RPL0
-SELECTOR_VIDEO equ (3<<3) + TI_GDT + RPL0
+SELECTOR_CODE   equ 8
+SELECTOR_DATA   equ 16
+SELECTOR_VIDEO  equ 24
 
 gdt_ptr:
-    dw GDT_LIMIT
+    dw gdt_end - gdt_base - 1
     dd gdt_base
 
 ; jump into protection mode
 protect:
+    mov sp, LOADER_BASE_ADDR
+    mov bp, sp
+
     ; a20
     in al, 0x92
     or al, 0x02
     out 0x92, al
 
+    cli
     ; load gdt
     lgdt [gdt_ptr]
 
