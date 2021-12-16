@@ -1,7 +1,7 @@
 %include "boot.inc"
 SECTION LOADER vstart=LOADER_BASE_ADDR
 
-; clear screen
+; enter protect mode
 jmp protect
 
 ; segment descriptors
@@ -21,7 +21,8 @@ code_desc:
     ; access byte
     ; bit[3]: executable 
     ; bits[4]: defines a code or data segment
-    db 00011000b
+    ; bits[7]: must be 1
+    db 10011000b
 
     ; flags and limit
     ; bits[0] ~ bits[3] limit
@@ -48,7 +49,7 @@ data_stack_desc:
     ; access byte
     ; bits[1]: writable
     ; bits[4]: defines a code or data segment
-    db 00010010b
+    db 10010010b
 
     ; flags and limit
     ; bits[0] ~ bits[3] limit
@@ -74,7 +75,7 @@ data_vedio_desc:
     ; access byte
     ; bits[1]: writable
     ; bits[4]: defines a code or data segment
-    db 00010010b
+    db 10010010b
 
     ; flags and limit
     ; bits[0] ~ bits[3] limit
@@ -88,9 +89,9 @@ data_vedio_desc:
 
 gdt_end:
 
-SELECTOR_CODE   equ 8
-SELECTOR_DATA   equ 16
-SELECTOR_VIDEO  equ 24
+SELECTOR_CODE   equ (1 << 3)
+SELECTOR_DATA   equ (2 << 3)
+SELECTOR_VIDEO  equ (3 << 3)
 
 gdt_ptr:
     dw gdt_end - gdt_base - 1
@@ -115,6 +116,7 @@ protect:
     or eax, 1
     mov cr0, eax
 
+    ; set cs = gdt[1], ip = p_mode_start
     jmp SELECTOR_CODE:p_mode_start
 
 ; clearn screen
@@ -125,11 +127,11 @@ cls:
     mov bx, 0x8000
     jmp .lp
 .lp:
-    mov byte gs:[bx], ' '
+    mov byte [gs:bx], ' '
     add bx, 1
     cmp bx, 0xffff  
     jz  .done
-    mov byte gs:[bx], 0xf
+    mov byte [gs:bx], 0xf
     add bx, 1
     cmp bx, 0xffff
     jz  .done
@@ -148,45 +150,72 @@ puts:
     lodsb
     or al, al
     jz .done
-    mov gs:[bx], al
+    mov [gs:bx], al
     add bx, 1
-    mov byte gs:[bx], 0xf
+    mov byte [gs:bx], 0xf
     add bx, 1
     jmp .lp
 .done:
     ret
 
 loading db 'Loading...' , 0
-msg db 'Protect mode' , 0
+msg db 'Protect mode...' , 0
 
 [bits 32]
 ; clear screen in protect mode
 cls_p: 
     mov ax, SELECTOR_VIDEO
     mov gs, ax
-    mov bx, 0
+    mov ebx, 0
     jmp .lp
 .lp:
-    mov byte gs:[bx], ' '
-    add bx, 1
-    cmp bx, 0x8000
+    mov byte [gs:ebx], ' '
+    add ebx, 1
+    cmp ebx, 0x7fff
     jz  .done
-    mov byte gs:[bx], 0xf
-    add bx, 1
-    cmp bx, 0x8000
+    mov byte [gs:ebx], 0xf
+    add ebx, 1
+    cmp ebx, 0x7fff
     jz  .done
     jmp .lp
 .done:
     ret
+
+puts_p:
+    mov esi, [ebp + 4]
+    mov ax, SELECTOR_VIDEO
+    mov gs, ax
+    mov ebx, 0
+    jmp .lp
+.lp:
+    lodsb
+    nop
+    or al, al
+    jz .done
+    mov byte [gs:ebx], al
+    add ebx, 1
+    mov byte [gs:ebx], 0xf
+    add ebx, 1
+    jmp .lp
+.done:
+    ret
+
 p_mode_start:
-    ; initialize data
+    ; initialize data, stack base
     mov ax, SELECTOR_DATA
     mov ds, ax
     mov es, ax
     mov ss, ax
 
     mov esp, LOADER_BASE_ADDR
+    mov ebp, esp
 
     call cls_p
 
+    push msg
+    pp
+    call puts_p
+    rp
+
     jmp $
+

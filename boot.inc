@@ -13,3 +13,14 @@ LOADER_SECTORS equ 1
     pop bp
     mov sp, bp
 %endmacro
+
+%macro pp 0
+    push ebp
+    mov  ebp, esp
+%endmacro
+
+%macro rp 0
+    mov esp, ebp
+    pop ebp
+    mov esp, ebp
+%endmacro
