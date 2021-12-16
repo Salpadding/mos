@@ -76,4 +76,5 @@ read_n_sec:
 
 
 times 510-($-$$) db 0
-dw 0AA55h
+db 0x55
+db 0xaa
