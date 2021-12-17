@@ -9,7 +9,6 @@ LOADER_SECTORS equ 1
 %endmacro
 
 %macro rt 0
-    mov sp, bp
     pop bp
     mov sp, bp
 %endmacro
@@ -19,8 +18,7 @@ LOADER_SECTORS equ 1
     mov  ebp, esp
 %endmacro
 
+
 %macro rp 0
-    mov esp, ebp
     pop ebp
-    mov esp, ebp
 %endmacro

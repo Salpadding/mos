@@ -182,7 +182,7 @@ cls_p:
     ret
 
 puts_p:
-    mov esi, [ebp + 4]
+    mov esi, [ebp - 4]
     mov ax, SELECTOR_VIDEO
     mov gs, ax
     mov ebx, 0
@@ -198,6 +198,76 @@ puts_p:
 .done:
     ret
 
+; fibo(a) = fibo(a - 1) + fibo(a - 2)
+; fibo(0) = 0
+; fibo(1) = 1
+fibo:
+    ; allocate two local variable
+    sub esp, 4
+    mov eax, [ebp - 4]
+    cmp eax, 0
+    jz  .r0
+    cmp eax, 1
+    jz  .r1
+
+    ; get fibo(a - 1)
+    pp 
+    sub eax, 1
+    push eax
+    call fibo
+    add esp, 4
+    rp
+
+    ; store return value
+    mov [ebp - 12], eax
+
+    ; get fibo(a - 2)
+    mov eax, [ebp - 4]
+    pp
+    sub eax, 2
+    push eax
+    call fibo
+    add esp, 4
+    rp
+
+    add eax, [ebp - 12]
+    add esp, 4
+    ret
+.r0:
+    add esp, 4
+    mov eax, 0
+    ret
+.r1:
+    add esp, 4
+    mov eax, 1
+    ret
+
+; fact(a) = a * fact(a-1)
+fact:
+    ; arguments
+    mov eax, [esp + 4]
+    ; cmp a and zero
+    cmp eax, 0
+    jz .done
+
+    ; get fact(a - 1)
+    sub eax, 1
+
+    pp 
+    push eax
+    call fact
+    add esp, 4
+    rp
+
+    mov ebx, eax
+    mov eax, [esp + 4]
+    mul ebx
+    ret
+.done:
+    ; fact(0) = 1
+    mov eax, 1
+    ret
+
 p_mode_start:
     ; initialize data, stack base
     mov ax, SELECTOR_DATA
@@ -210,9 +280,19 @@ p_mode_start:
 
     call cls_p
 
-    push msg
     pp
+    push msg
+    ; ebp + 4 = msg
     call puts_p
+    add esp, 4
+    rp
+
+    jmp $
+    mov eax, 2
+    pp
+    push eax
+    call fibo
+    add esp, 4
     rp
 
     jmp $
