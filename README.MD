@@ -119,10 +119,13 @@ Immediate is acceptable for only AX-DX and memory address.
 
 5. Add, Sub
 
-right: immediate, memory address, AX-DX
-left: memory address, AX-DX
-
+right: immediate, memory location, AX-DX
+left: memory location, AX-DX
 
 6. Push
 
-right: immediate, memory address, AX-DX, SRegs
+right: immediate, memory location, AX-DX, SRegs
+
+7. Mul
+
+right: AX-DX, memory location

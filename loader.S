@@ -1,10 +1,49 @@
 %include "boot.inc"
 SECTION LOADER vstart=LOADER_BASE_ADDR
 
-; enter protect mode
-jmp protect
+; create page directory entry at i with attribute 
+; allocate and map
+; %1 = pde index, %2 = attribute, %3 = page table address
+%macro create_pde 3
+    mov eax, 4
+    mov ebx, %1
+    mul ebx
+    add eax, 0x10000
+    mov ebx, eax
 
-; segment descriptors
+    mov ecx, 0
+    or  ecx, %2
+    or  ecx, %3
+    mov [ebx], ecx
+%endmacro
+
+
+%macro init_pte
+    
+%endmacro
+
+; enter protect mode
+jmp start
+
+; memory allocation of pde and pte
+; 0 <= i < 1024 pde(i) address = 0x10000 + i * 4
+; for 0 <= i < 1024, pde(i):
+; 0 <= j < 1024 pte(j) address = 0x10000 + (i+1) * 4096 + j * 4
+
+
+setup_page:
+    ; clear [0x10000, 0x10000 + 4096)
+    mov ecx, 4096
+    mov ebx, 0x10000
+.clear:
+    mov byte [ebx], 0
+    inc ebx
+    loop .clear
+.pde:
+    create_pde 0,   7, 0x10000 + 4096 * 1
+    create_pde 768, 7, 0x10000 + 4096 * 1
+    create_pde 1023,7, 0x10000
+
 gdt_base:
     dq 0 
 
@@ -132,7 +171,7 @@ mem_size:
 
 
 ; jump into protection mode
-protect:
+start:
     mov sp, LOADER_BASE_ADDR
     mov bp, sp
 
