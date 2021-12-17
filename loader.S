@@ -97,10 +97,46 @@ gdt_ptr:
     dw gdt_end - gdt_base - 1
     dd gdt_base
 
+mem_size:
+    ; get memory size
+    mov ax, 0xe801
+    int 0x15
+
+    ; ax * 1024 + bx * 1024 * 64 + 1024 * 1024
+
+    ; esp + 8
+    push ebx;
+    ; esp + 4
+    push eax
+
+    ; ax * 1024
+    mov eax, [esp]
+    mov ebx, 1024
+    mul ebx
+    mov [esp], eax
+
+    mov eax, [esp + 4]
+    mul ebx
+    mov ebx, 64
+    mul ebx
+    mov [esp + 4], eax
+
+    mov eax, 1024
+    mul eax
+    add eax, [esp]
+    add eax, [esp + 4]
+
+    add esp, 8
+    ret
+
+
+
 ; jump into protection mode
 protect:
     mov sp, LOADER_BASE_ADDR
     mov bp, sp
+
+    call mem_size
 
     ; a20
     in al, 0x92
@@ -167,18 +203,11 @@ cls_p:
     mov ax, SELECTOR_VIDEO
     mov gs, ax
     mov ebx, 0
-    jmp .lp
+    mov ecx, 0x4000
 .lp:
-    mov byte [gs:ebx], ' '
-    add ebx, 1
-    cmp ebx, 0x7fff
-    jz  .done
-    mov byte [gs:ebx], 0xf
-    add ebx, 1
-    cmp ebx, 0x7fff
-    jz  .done
-    jmp .lp
-.done:
+    mov word [gs:ebx], 0x0f20
+    add ebx, 2
+    loop .lp
     ret
 
 puts_p:
@@ -284,14 +313,6 @@ p_mode_start:
     push msg
     ; ebp + 4 = msg
     call puts_p
-    add esp, 4
-    rp
-
-    jmp $
-    mov eax, 2
-    pp
-    push eax
-    call fibo
     add esp, 4
     rp
 

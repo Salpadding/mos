@@ -72,5 +72,57 @@ when calling add in main:
 8. pop and assign to bp
 9. pop and jump 
 
+## Assembly Notes
 
 
+1. Moving an immediate into segment register is not allowed
+
+
+2. x86_64 is Little-Endian
+
+if memory = 
+
+```py
+memory = [0x11, 0x22, 0x33]
+```
+
+```asm
+mov ax, 0
+mov ds, ax
+mov bx, [0]
+```
+
+then 
+
+```
+bx = 0x2211
+```
+
+3. Source in arithmetic operation is allowed to be immediate or memory address, destination in arithmetic is allowed to be memory address
+
+```asm
+add ax, 1
+add ax, [0]
+
+
+4. mov
+
+Immediate is acceptable for only AX-DX and memory address.
+
+- mov ax, 1
+- mov ax, bx
+- mov ax, ds
+- mov ax, [0] 
+- mov [0], ax
+- mov ds, ax
+
+
+5. Add, Sub
+
+right: immediate, memory address, AX-DX
+left: memory address, AX-DX
+
+
+6. Push
+
+right: immediate, memory address, AX-DX, SRegs
