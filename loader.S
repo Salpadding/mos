@@ -11,15 +11,34 @@ SECTION LOADER vstart=LOADER_BASE_ADDR
     add eax, 0x10000
     mov ebx, eax
 
-    mov ecx, 0
-    or  ecx, %2
-    or  ecx, %3
-    mov [ebx], ecx
+    mov eax, 0
+    or  eax, %2
+    or  eax, %3
+    mov [ebx], eax
 %endmacro
 
+; %1 = i, %2 = j, %3 = attribute %4 = addres
+%macro init_pte 4
+    mov eax, 4096
+    mov ebx, %1
+    inc ebx
+    mul ebx
+    add eax, 0x10000
 
-%macro init_pte
-    
+    push eax
+
+    mov eax, %2
+    mov ebx, 4
+    mul ebx
+    add [esp], eax
+
+    mov ebx, [esp]
+    mov eax, %3
+    or eax, %4
+    mov [ebx], eax
+    add esp, 4
+
+
 %endmacro
 
 ; enter protect mode
@@ -43,6 +62,26 @@ setup_page:
     create_pde 0,   7, 0x10000 + 4096 * 1
     create_pde 768, 7, 0x10000 + 4096 * 1
     create_pde 1023,7, 0x10000
+
+    mov ecx, 256
+    mov esi, 0
+.pte:
+    init_pte 0, esi, 7, 0
+    loop .pte
+
+
+    ; create pde for pde [769, 1023)
+    mov esi, 769
+    mov edx, 0x10000
+    add edx, 0x2000
+    mov ecx, 1023 - 769
+.kernel:
+    create_pde esi, 7, edx
+    inc esi
+    add edx, 0x1000
+    loop .kernel
+
+
 
 gdt_base:
     dq 0 
