@@ -27,7 +27,7 @@ mmap:
     mov ebx, [esp + 4]
     ; physical address
     mov eax, [esp + 8]
-.cnt
+.cnt:
     mov edx, eax
     ; set attribute
     or edx, [esp + 16]
@@ -90,6 +90,7 @@ setup_page:
     create_pde 768, 7, 0x10000 + 4096 * 1
     create_pde 1023,7, 0x10000
 
+    ; create 256 pte 
     ; attribute
     push dword 7
     ; page count
@@ -101,14 +102,8 @@ setup_page:
     call mmap
     add esp, 16
 
-
-.pte:
-    ; initialized page table entry from 
-    init_pte 0, esi, 7, 0
-    loop .pte
-
-
     ; create pde for pde [769, 1023)
+    ; &pte[0] of pde[i] = (i - 769) * 4096 + 0x10000 + 0x2000
     mov esi, 769
     mov edx, 0x10000
     add edx, 0x2000
@@ -118,7 +113,7 @@ setup_page:
     inc esi
     add edx, 0x1000
     loop .kernel
-
+    ret
 
 
 gdt_base:
