@@ -1,6 +1,7 @@
 %include "boot.inc"
 SECTION LOADER vstart=LOADER_BASE_ADDR
 
+; for 0 <= i < 1024 pde(i) address = 0x10000 + i * 4
 ; create page directory entry at i with attribute 
 ; allocate and map
 ; %1 = pde index, %2 = attribute, %3 = page table address
@@ -16,6 +17,26 @@ SECTION LOADER vstart=LOADER_BASE_ADDR
     or  eax, %3
     mov [ebx], eax
 %endmacro
+
+; %1 = pte address, %2 = physical address start, %3 = page count, %4 = attribute
+;  esp + 4           , esp + 8                    ,  esp + 12  , esp + 16
+mmap:
+    ; loop n pages
+    mov ecx, [esp + 12]
+    ; pte[0] physical address, often starts with 0x10000 + 4096
+    mov ebx, [esp + 4]
+    ; physical address
+    mov eax, [esp + 8]
+.cnt
+    mov edx, eax
+    ; set attribute
+    or edx, [esp + 16]
+    mov [ebx], edx
+    add ebx, 4
+    add eax, 4096
+    loop .cnt
+    ret
+
 
 ; %1 = i, %2 = j, %3 = attribute %4 = addres
 %macro init_pte 4
@@ -44,14 +65,18 @@ SECTION LOADER vstart=LOADER_BASE_ADDR
 ; enter protect mode
 jmp start
 
-; memory allocation of pde and pte
-; 0 <= i < 1024 pde(i) address = 0x10000 + i * 4
-; for 0 <= i < 1024, pde(i):
-; 0 <= j < 1024 pte(j) address = 0x10000 + (i+1) * 4096 + j * 4
 
+; mapping from virtual memory x to physical memory y: 
+; address of pde[0] is 0x100000
+; pde index i = (x & 0xffc00000) >> 22
+; address of pde[i] = 0x100000 + 4 * i
+; pte index j = (x & 0x3ff000) >> 12
+; address of pte[0] = pde[i] & 0xfffff000
+; address of pte[j] = &pte[0] + 4 * j
+; address of page = pte[j] & 0xfffff000
+; y = (pte[j] & 0xfffff000) + (y & 0xfff)
 
 setup_page:
-    ; clear [0x10000, 0x10000 + 4096)
     mov ecx, 4096
     mov ebx, 0x10000
 .clear:
@@ -59,13 +84,26 @@ setup_page:
     inc ebx
     loop .clear
 .pde:
+    ; let [0, 1mb) in virtual map to physical [0, 1M)
     create_pde 0,   7, 0x10000 + 4096 * 1
+    ; let [3G, 3G+ 1mb) in virtual map to physical [0, 1M)
     create_pde 768, 7, 0x10000 + 4096 * 1
     create_pde 1023,7, 0x10000
 
-    mov ecx, 256
-    mov esi, 0
+    ; attribute
+    push dword 7
+    ; page count
+    push dword 256
+    ; physical address start
+    push dword 0
+    ; pte start address
+    push dword 0x10000 + 4096 * 1
+    call mmap
+    add esp, 16
+
+
 .pte:
+    ; initialized page table entry from 
     init_pte 0, esi, 7, 0
     loop .pte
 
