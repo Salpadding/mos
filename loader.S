@@ -1,7 +1,12 @@
 %include "boot.inc"
 SECTION LOADER vstart=LOADER_BASE_ADDR
+PDE_START equ 0x100000
 
-; for 0 <= i < 1024 pde(i) address = 0x10000 + i * 4
+; enter protect mode
+jmp start
+
+; pdes[i] = %2 || %3
+; for 0 <= i < 1024 pde(i) address = 1M + i * 4
 ; create page directory entry at i with attribute 
 ; allocate and map
 ; %1 = pde index, %2 = attribute, %3 = page table address
@@ -9,7 +14,7 @@ SECTION LOADER vstart=LOADER_BASE_ADDR
     mov eax, 4
     mov ebx, %1
     mul ebx
-    add eax, 0x10000
+    add eax, PDE_START
     mov ebx, eax
 
     mov eax, 0
@@ -17,103 +22,6 @@ SECTION LOADER vstart=LOADER_BASE_ADDR
     or  eax, %3
     mov [ebx], eax
 %endmacro
-
-; %1 = pte address, %2 = physical address start, %3 = page count, %4 = attribute
-;  esp + 4           , esp + 8                    ,  esp + 12  , esp + 16
-mmap:
-    ; loop n pages
-    mov ecx, [esp + 12]
-    ; pte[0] physical address, often starts with 0x10000 + 4096
-    mov ebx, [esp + 4]
-    ; physical address
-    mov eax, [esp + 8]
-.cnt:
-    mov edx, eax
-    ; set attribute
-    or edx, [esp + 16]
-    mov [ebx], edx
-    add ebx, 4
-    add eax, 4096
-    loop .cnt
-    ret
-
-
-; %1 = i, %2 = j, %3 = attribute %4 = addres
-%macro init_pte 4
-    mov eax, 4096
-    mov ebx, %1
-    inc ebx
-    mul ebx
-    add eax, 0x10000
-
-    push eax
-
-    mov eax, %2
-    mov ebx, 4
-    mul ebx
-    add [esp], eax
-
-    mov ebx, [esp]
-    mov eax, %3
-    or eax, %4
-    mov [ebx], eax
-    add esp, 4
-
-
-%endmacro
-
-; enter protect mode
-jmp start
-
-
-; mapping from virtual memory x to physical memory y: 
-; address of pde[0] is 0x100000
-; pde index i = (x & 0xffc00000) >> 22
-; address of pde[i] = 0x100000 + 4 * i
-; pte index j = (x & 0x3ff000) >> 12
-; address of pte[0] = pde[i] & 0xfffff000
-; address of pte[j] = &pte[0] + 4 * j
-; address of page = pte[j] & 0xfffff000
-; y = (pte[j] & 0xfffff000) + (y & 0xfff)
-
-setup_page:
-    mov ecx, 4096
-    mov ebx, 0x10000
-.clear:
-    mov byte [ebx], 0
-    inc ebx
-    loop .clear
-.pde:
-    ; let [0, 1mb) in virtual map to physical [0, 1M)
-    create_pde 0,   7, 0x10000 + 4096 * 1
-    ; let [3G, 3G+ 1mb) in virtual map to physical [0, 1M)
-    create_pde 768, 7, 0x10000 + 4096 * 1
-    create_pde 1023,7, 0x10000
-
-    ; create 256 pte 
-    ; attribute
-    push dword 7
-    ; page count
-    push dword 256
-    ; physical address start
-    push dword 0
-    ; pte start address
-    push dword 0x10000 + 4096 * 1
-    call mmap
-    add esp, 16
-
-    ; create pde for pde [769, 1023)
-    ; &pte[0] of pde[i] = (i - 769) * 4096 + 0x10000 + 0x2000
-    mov esi, 769
-    mov edx, 0x10000
-    add edx, 0x2000
-    mov ecx, 1023 - 769
-.kernel:
-    create_pde esi, 7, edx
-    inc esi
-    add edx, 0x1000
-    loop .kernel
-    ret
 
 
 gdt_base:
@@ -145,8 +53,6 @@ code_desc:
     ; base 23-31
     db 0
 
-
-
 ; define a data segment limit = 0xfffff * 4kb = 4G, read/writable, while not executable
 ; base = 0
 data_stack_desc:
@@ -172,37 +78,10 @@ data_stack_desc:
     ; base 23-31
     db 0
 
-; define a data segment limit = 8 * 4kb = 32kb, base = 0xb8000 read/writable, while not executable
-; base = 0
-data_vedio_desc:
-    ; limit 0-15
-    dw 8
-    ; base 0-15
-    dw 0x8000
-
-    ; base 16-23
-    db 0x0b 
-
-    ; access byte
-    ; bits[1]: writable
-    ; bits[4]: defines a code or data segment
-    db 10010010b
-
-    ; flags and limit
-    ; bits[0] ~ bits[3] limit
-    ; bits[4]: reserved
-    ; bits[5]: long mode, for 64bit
-    ; bits[6]: 32bit
-    ; bits[7]: page size = 4kb
-    db 0xc0
-    ; base 23-31
-    db 0
-
 gdt_end:
 
 SELECTOR_CODE   equ (1 << 3)
 SELECTOR_DATA   equ (2 << 3)
-SELECTOR_VIDEO  equ (3 << 3)
 
 gdt_ptr:
     dw gdt_end - gdt_base - 1
@@ -255,6 +134,9 @@ start:
     out 0x92, al
 
     cli
+
+    ; setup gdt
+
     ; load gdt
     lgdt [gdt_ptr]
 
@@ -311,28 +193,24 @@ msg db 'Protect mode...' , 0
 [bits 32]
 ; clear screen in protect mode
 cls_p: 
-    mov ax, SELECTOR_VIDEO
-    mov gs, ax
-    mov ebx, 0
+    mov ebx, 0xc00b8000
     mov ecx, 0x4000
 .lp:
-    mov word [gs:ebx], 0x0f20
+    mov word [ebx], 0x0f20
     add ebx, 2
     loop .lp
     ret
 
 puts_p:
+    mov ebx, 0xc00b8000
     mov esi, [ebp - 4]
-    mov ax, SELECTOR_VIDEO
-    mov gs, ax
-    mov ebx, 0
     jmp .lp
 .lp:
     lodsb
     mov ah, 0xf
     or al, al
     jz .done
-    mov [gs:ebx], ax
+    mov [ebx], ax
     add ebx, 2
     jmp .lp
 .done:
@@ -418,6 +296,19 @@ p_mode_start:
     mov esp, LOADER_BASE_ADDR
     mov ebp, esp
 
+
+    ; enable paging
+    call setup_page
+    mov  eax, PDE_START
+    mov  cr3, eax
+
+    mov eax, cr0
+    or  eax, 1 << 31
+    mov cr0, eax
+
+    ; increase stack base with 3GB
+    add esp, 0xc0000000
+
     call cls_p
 
     pp
@@ -427,5 +318,93 @@ p_mode_start:
     add esp, 4
     rp
 
+    push dword 768
+    call get_pde
+    add esp, 4
+
     jmp $
 
+
+; %1 = pte address, %2 = physical address start, %3 = page count, %4 = attribute
+;  esp + 4           , esp + 8                    ,  esp + 12  , esp + 16
+mmap:
+    ; loop n pages
+    mov ecx, [esp + 12]
+    ; pte[0] physical address, often starts with 0x10000 + 4096
+    mov ebx, [esp + 4]
+    ; physical address
+    mov eax, [esp + 8]
+.cnt:
+    mov edx, eax
+    ; set attribute
+    or edx, [esp + 16]
+    mov [ebx], edx
+    add ebx, 4
+    add eax, 4096
+    loop .cnt
+    ret
+
+
+; mapping from virtual memory x to physical memory y: 
+; address of pde[0] is 0x100000
+; pde index i = (x & 0xffc00000) >> 22
+; address of pde[i] = 0x100000 + 4 * i
+; pte index j = (x & 0x3ff000) >> 12
+; address of pte[0] = pde[i] & 0xfffff000
+; address of pte[j] = &pte[0] + 4 * j
+; address of page = pte[j] & 0xfffff000
+; y = (pte[j] & 0xfffff000) + (y & 0xfff)
+
+
+; address page table info it self
+; for ith pde
+; &pde[i] == (1023 << 22) | (1023 << 12)  | (i * 4)
+get_pde:
+    mov eax, [esp + 4]
+    shl eax, 2
+    add eax, (1023 << 22) | (1023 << 12)
+    mov eax, [eax]
+    ret
+
+; i = esp + 4, j = esp + 8
+get_pte:
+    mov eax, [esp + 4]
+    shl eax, 12
+    add eax, 1023 << 22
+    mov ebx, eax
+    mov eax, [esp + 8]
+    shl eax, 2
+    add eax, ebx
+    mov eax, [eax]
+    ret
+
+setup_page:
+    ; for(int i = 0; i < 1024; i++) pdes[i] = 0
+    mov ecx, 4096
+    mov ebx, PDE_START
+.clear:
+    mov byte [ebx], 0
+    inc ebx
+    loop .clear
+.pde:
+    ; let [0, 1mb) in virtual map to physical [0, 1M)
+    ; pdes[0] = 7 || pdes + 4096
+    create_pde 0,   7, PDE_START + 4096 * 1
+    ; let [3G, 3G+ 1mb) in virtual map to physical [0, 1M)
+    ; pdes[768] = pdes[0]
+    create_pde 768, 7, PDE_START + 4096 * 1
+    ; pdes[1023] = 7 | pdes
+    create_pde 1023,7, PDE_START
+
+    ; create 256 pte 
+    ; attribute
+    push dword 7
+    ; page count
+    push dword 256
+    ; physical address start
+    push dword 0
+    ; pte start address
+    push dword PDE_START + 4096 * 1
+    call mmap
+    add esp, 16
+    ret
