@@ -41,6 +41,9 @@ bochs
 vb 0:0x7c00 if 'cs == 0'
 ```
 
+## Memory allocation
+
+1. loader = 4kb, 8 sectors, starts from 0x500
 
 ## C language calling convention
 
