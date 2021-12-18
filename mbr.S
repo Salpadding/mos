@@ -9,7 +9,7 @@ mov ss, ax
 mov sp, MBR_BASE_ADDR
 mov bp, sp
 
-; loader
+; load kernel loader
 push LOADER_BASE_ADDR
 push LOADER_SECTORS
 push LOADER_START_SECTOR
@@ -17,14 +17,13 @@ pre
 call read_n_sec
 rt
 
-; load kernel
-; setup data segment
+; load kernel to [0x70000, )
 mov ax, KERNEL_BASE_ADDR >> 4
 mov ds, ax
 
 push 0
 push KERNEL_SECTORS
-push 1 + LOADER_SECTORS + KERNEL_SECTORS
+push 1 + LOADER_SECTORS
 pre
 call read_n_sec
 rt
@@ -35,6 +34,7 @@ mov ds, ax
 jmp LOADER_BASE_ADDR
 
 ; read_n_sec(start_sec, n, dst)
+; start_sec <= 65535, n <= 65535
 ; bp + 2, bp + 4, bp + 6
 read_n_sec:
     ; set sector n
@@ -90,11 +90,9 @@ read_n_sec:
     cmp bx, 0
     jnz .con
 .seg:
-    mov ax, 0x1000
-    mov bx, gs
-    add ax, bx
-    mov gs, ax
-    mov bx, 0
+    mov ax, ds
+    add ax, 0x1000
+    mov ds, ax
 .con:
     loop .read, ecx
     ret
