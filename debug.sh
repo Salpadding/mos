@@ -21,13 +21,13 @@ sectors() {
 if [[ $OSTYPE == 'darwin'* ]]; then
     rep_line bochsrc.txt 93 'display_library: sdl2'
 else
-    rep_line bochsrc.txt 93 '#display_library: sdl2'
+    rep_line bochsrc.txt 93 'display_library: win32, options="gui_debug"'
 fi
 
 # build kernel on a 32bit kali system
 ssh -t kali@kali 'rm -rf $HOME/kernel' > /dev/null
 scp -r kernel kali@kali:/home/kali > /dev/null
-ssh -t kali@kali 'pushd $HOME/kernel && gcc -c -o main.o main.c && ld main.o -Ttext 0xc0001500 -e main -o kernel.bin && rm main.o'
+ssh -t kali@kali 'pushd $HOME/kernel && gcc -c -O0 -o main.o main.c && ld main.o -Ttext 0xc0001500 -e main -o kernel.bin && rm main.o'
 rm -rf kernel.bin
 scp kali@kali:/home/kali/kernel/kernel.bin ./kernel.bin
 

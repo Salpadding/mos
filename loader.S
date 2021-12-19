@@ -308,6 +308,7 @@ p_mode_start:
 
     ; increase stack base with 3GB
     add esp, 0xc0000000
+    mov ebp, esp
 
     call cls_p
 
