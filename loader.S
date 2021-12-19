@@ -318,11 +318,9 @@ p_mode_start:
     add esp, 4
     rp
 
-    push dword 768
-    call get_pde
-    add esp, 4
+    call kernel_init
 
-    jmp $
+    jmp SELECTOR_CODE:KERNEL_ENTRY
 
 
 ; %1 = pte address, %2 = physical address start, %3 = page count, %4 = attribute
@@ -409,5 +407,79 @@ setup_page:
     add esp, 16
     ret
 
+; void kernel_init();
 kernel_init:
+    ; allocate three local variable
+    push ebp
+    mov ebp, esp
+    sub esp, 12
+
+    mov ebx, KERNEL_BASE_ADDR 
+    mov esi, 28
+
+    ; [ebp - 4] offset of headers
+    mov eax, [ebx + esi]
+    mov dword [ebp - 4], eax
+
+    mov esi, 44
+    mov eax, 0
+    mov ax,  [ebx + esi]
+    ; [ebp - 8] number of headers
+    mov dword [ebp - 8], eax
+
+    ; [ebp - 12] current header index
+    mov eax, 0
+    mov [ebp - 12], eax
+.loop:
+    mov eax, 32
+    mul dword [ebp - 12] 
+    add eax,  [ebp - 4]
+    add eax,  KERNEL_BASE_ADDR
+    ; continue only if type == 1
+    cmp dword [eax], 1
+    jnz .cond
+
+    ; call memcpy
+    mov ebx, eax
+
+    pp
+    ; size
+    push dword [ebx + 16]
+
+    ; source
+    mov eax, [ebx + 4]
+    add eax, KERNEL_BASE_ADDR
+    push eax
+
+    ; dest
+    push dword [ebx + 8]
+    call mem_cpy
+    add  esp, 12
+    rp
+
+.cond:
+    add dword [ebp - 12], 1
+    mov eax, [ebp - 8]
+    cmp [ebp - 12], eax
+    jz .done
+    jmp .loop
+
+.done:
+    add esp, 12
+    pop ebp
+    ret
+
+; mem_cpy(dst, src, size)
+;         -12 , -8, -4
+mem_cpy:
+    cld
+    ; backup ecx
+    push ecx
+    mov esi, [ebp - 8]
+    mov edi, [ebp - 12]
+    mov ecx, [ebp - 4]
+    rep movsb
+    pop ecx
+    ret
+
     

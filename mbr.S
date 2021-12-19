@@ -9,6 +9,7 @@ mov ss, ax
 mov sp, MBR_BASE_ADDR
 mov bp, sp
 
+
 ; load kernel loader
 push LOADER_BASE_ADDR
 push LOADER_SECTORS

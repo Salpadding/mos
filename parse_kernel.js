@@ -17,5 +17,21 @@ for(let i = 0; i < phnum; i++) {
         console.log('null pt')
     } else {
         console.log(`pt = 0x${type.toString(16)}`)
+
+        // p_offset, segment start of file 
+        const segOff = bin.readUInt32LE(off + 4)
+        const vAddr = bin.readUInt32LE(off + 8)
+        const pAddr = bin.readUInt32LE(off + 12)
+        const fileSz = bin.readUInt32LE(off + 16)
+        const memSz = bin.readUInt32LE(off + 20)
+
+        console.log ({
+            type: type === 0x6474e551 ? 'PT_GNU_STACK' : type.toString(),
+            segOff,
+            vAddr: '0x' + vAddr.toString(16),
+            pAddr: '0x' + pAddr.toString(16),
+            fileSz,
+            memSz
+        })
     }
 }
