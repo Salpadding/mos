@@ -408,3 +408,6 @@ setup_page:
     call mmap
     add esp, 16
     ret
+
+kernel_init:
+    

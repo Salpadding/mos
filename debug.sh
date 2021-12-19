@@ -1,23 +1,44 @@
 #!/usr/bin/env zsh
 set -e
 
+# replace $2 line of file $1 with $3
+rep_line() {
+    # replace space with #
+    c=`echo $3 | sed -e s/\ /-/g`
+    sed -e $2's/.*/'$c'/' $1 |  sed -e $2's/--*/\ /g' >tmp.txt
+    rm $1
+    mv tmp.txt $1
+}
+
+# sectors of a $1
+sectors() {
+    sz=`wc $1 | awk '{print $3}'`
+    echo $((($sz+511)/512))
+}
+
+
+# select sdl2 as display library on macos
+if [[ $OSTYPE == 'darwin'* ]]; then
+    rep_line bochsrc.txt 93 'display_library: sdl2'
+else
+    rep_line bochsrc.txt 93 '#display_library: sdl2'
+fi
+
+# build kernel on a 32bit kali system
+ssh -t kali@kali 'rm -rf $HOME/kernel' > /dev/null
+scp -r kernel kali@kali:/home/kali > /dev/null
+ssh -t kali@kali 'pushd $HOME/kernel && gcc -c -o main.o main.c && ld main.o -Ttext 0xc0001500 -e main -o kernel.bin && rm main.o'
+rm -rf kernel.bin
+scp kali@kali:/home/kali/kernel/kernel.bin ./kernel.bin
+
+KERNEL_SECTORS=`sectors kernel.bin`
+rep_line boot.inc 5 "KERNEL_SECTORS equ $KERNEL_SECTORS"
+
 nasm -o loader.bin loader.S
 
 # get sectors of loader.bin
-LOADER_SIZE=`wc loader.bin | awk '{print $3}'`
-LOADER_SECTORS=$((($LOADER_SIZE+511)/512))
-sed '4s/.*/LOADER_SECTORS equ '$LOADER_SECTORS'/'  boot.inc >boot.inc.replaced
-rm boot.inc
-mv boot.inc.replaced boot.inc
-
-# build kernel
-nasm -o kernel.bin kernel.S
-KERNEL_SIZE=`wc kernel.bin | awk '{print $3}'`
-KERNEL_SECTORS=$((($KERNEL_SIZE+511)/512))
-sed '5s/.*/KERNEL_SECTORS equ '$KERNEL_SECTORS'/'  boot.inc >boot.inc.replaced
-rm boot.inc
-mv boot.inc.replaced boot.inc
-
+LOADER_SECTORS=`sectors loader.bin`
+rep_line boot.inc 4 "LOADER_SECTORS equ $LOADER_SECTORS"
 
 nasm -o mbr.bin mbr.S
 dd if=mbr.bin of=hd60M.img bs=512 count=1 conv=notrunc
