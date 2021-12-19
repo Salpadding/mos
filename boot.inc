@@ -9,23 +9,3 @@ KERNEL_ENTRY equ 0xc0001500
 PAGE_DIR_CNT equ 1024
 PAGE_DIR_BASE equ 0x10000
 PAGE_DIR_SIZE equ PAGE_DIR_CNT * 4
-
-%macro pre 0
-    push bp
-    mov bp, sp
-%endmacro
-
-%macro rt 0
-    pop bp
-    mov sp, bp
-%endmacro
-
-%macro pp 0
-    push ebp
-    mov  ebp, esp
-%endmacro
-
-
-%macro rp 0
-    pop ebp
-%endmacro

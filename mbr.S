@@ -11,23 +11,19 @@ mov bp, sp
 
 
 ; load kernel loader
-push LOADER_BASE_ADDR
-push LOADER_SECTORS
-push LOADER_START_SECTOR
-pre
+mov bx, LOADER_START_SECTOR
+mov cx, LOADER_SECTORS
+mov dx, LOADER_BASE_ADDR
 call read_n_sec
-rt
 
 ; load kernel to [0x70000, )
 mov ax, KERNEL_BASE_ADDR >> 4
 mov ds, ax
 
-push 0
-push KERNEL_SECTORS
-push 1 + LOADER_SECTORS
-pre
+mov bx, 1 + LOADER_SECTORS
+mov cx, KERNEL_SECTORS
+mov dx, 0
 call read_n_sec
-rt
 
 mov ax, 0
 mov ds, ax
@@ -35,17 +31,25 @@ mov ds, ax
 jmp LOADER_BASE_ADDR
 
 ; read_n_sec(start_sec, n, dst)
+; read_n_sec(bx, cx, dx)
 ; start_sec <= 65535, n <= 65535
 ; bp + 2, bp + 4, bp + 6
 read_n_sec:
+    push bp
+    mov  bp, sp
+
+    push bx
+    push cx
+    push dx
+
     ; set sector n
     mov dx, 0x1f2
-    mov ax, [bp + 4]
+    mov ax, [bp - 4]
     out dx, al
 
     ; set sector number
     mov dx, 0x1f3
-    mov ax, [bp + 2]
+    mov ax, [bp - 2]
     out dx, al
 
     mov dx, 0x1f4
@@ -77,12 +81,12 @@ read_n_sec:
 ; read from 0x1f0
 ; set loop count
     mov eax, 0
-    mov ax, [bp + 4]
+    mov ax, [bp - 4]
     mov edx, 256
     mul edx
     mov ecx, eax
     mov dx, 0x1f0
-    mov bx, [bp + 6]
+    mov bx, [bp - 6]
 
 .read:
     in ax, dx
@@ -96,6 +100,10 @@ read_n_sec:
     mov ds, ax
 .con:
     loop .read, ecx
+    pop dx
+    pop cx
+    pop bx
+    pop bp
     ret
 
 

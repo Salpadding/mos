@@ -148,45 +148,6 @@ start:
     ; set cs = gdt[1], ip = p_mode_start
     jmp SELECTOR_CODE:p_mode_start
 
-; clearn screen
-; fill from 0xb8000 to 0xbffff with blank
-cls:
-    mov ax, 0xb000
-    mov gs, ax
-    mov bx, 0x8000
-    jmp .lp
-.lp:
-    mov byte [gs:bx], ' '
-    add bx, 1
-    cmp bx, 0xffff  
-    jz  .done
-    mov byte [gs:bx], 0xf
-    add bx, 1
-    cmp bx, 0xffff
-    jz  .done
-    jmp .lp
-.done:
-    ret
-
-; put string
-puts:
-    mov si, [bp + 2]
-    mov ax, 0xb800
-    mov gs, ax
-    mov bx, 0
-    jmp .lp
-.lp:
-    lodsb
-    or al, al
-    jz .done
-    mov [gs:bx], al
-    add bx, 1
-    mov byte [gs:bx], 0xf
-    add bx, 1
-    jmp .lp
-.done:
-    ret
-
 loading db 'Loading...' , 0
 msg db 'Protect mode...' , 0
 
@@ -201,9 +162,11 @@ cls_p:
     loop .lp
     ret
 
+; puts_p(ebx)
 puts_p:
+    push ebx
     mov ebx, 0xc00b8000
-    mov esi, [ebp - 4]
+    mov esi, [esp]
     jmp .lp
 .lp:
     lodsb
@@ -214,76 +177,7 @@ puts_p:
     add ebx, 2
     jmp .lp
 .done:
-    ret
-
-; fibo(a) = fibo(a - 1) + fibo(a - 2)
-; fibo(0) = 0
-; fibo(1) = 1
-fibo:
-    ; allocate two local variable
-    sub esp, 4
-    mov eax, [ebp - 4]
-    cmp eax, 0
-    jz  .r0
-    cmp eax, 1
-    jz  .r1
-
-    ; get fibo(a - 1)
-    pp 
-    sub eax, 1
-    push eax
-    call fibo
-    add esp, 4
-    rp
-
-    ; store return value
-    mov [ebp - 12], eax
-
-    ; get fibo(a - 2)
-    mov eax, [ebp - 4]
-    pp
-    sub eax, 2
-    push eax
-    call fibo
-    add esp, 4
-    rp
-
-    add eax, [ebp - 12]
-    add esp, 4
-    ret
-.r0:
-    add esp, 4
-    mov eax, 0
-    ret
-.r1:
-    add esp, 4
-    mov eax, 1
-    ret
-
-; fact(a) = a * fact(a-1)
-fact:
-    ; arguments
-    mov eax, [esp + 4]
-    ; cmp a and zero
-    cmp eax, 0
-    jz .done
-
-    ; get fact(a - 1)
-    sub eax, 1
-
-    pp 
-    push eax
-    call fact
-    add esp, 4
-    rp
-
-    mov ebx, eax
-    mov eax, [esp + 4]
-    mul ebx
-    ret
-.done:
-    ; fact(0) = 1
-    mov eax, 1
+    pop ebx
     ret
 
 p_mode_start:
@@ -312,12 +206,9 @@ p_mode_start:
 
     call cls_p
 
-    pp
-    push msg
+    mov ebx, msg
     ; ebp + 4 = msg
     call puts_p
-    add esp, 4
-    rp
 
     call kernel_init
 
@@ -441,23 +332,18 @@ kernel_init:
     jnz .cond
 
     ; call memcpy
-    mov ebx, eax
-
-    pp
-    ; size
-    push dword [ebx + 16]
-
-    ; source
-    mov eax, [ebx + 4]
-    add eax, KERNEL_BASE_ADDR
-    push eax
 
     ; dest
-    push dword [ebx + 8]
-    call mem_cpy
-    add  esp, 12
-    rp
+    mov ebx, [eax + 8]
 
+    ; size
+    mov edx, [eax + 16]
+
+    ; source
+    mov eax, [eax + 4]
+    add eax, KERNEL_BASE_ADDR
+    mov ecx, eax
+    call mem_cpy
 .cond:
     add dword [ebp - 12], 1
     mov eax, [ebp - 8]
@@ -471,14 +357,14 @@ kernel_init:
     ret
 
 ; mem_cpy(dst, src, size)
-;         -12 , -8, -4
+; mem_cpy(ebx, ecx, edx)
 mem_cpy:
+    push edx
     cld
     ; backup ecx
-    push ecx
-    mov esi, [ebp - 8]
-    mov edi, [ebp - 12]
-    mov ecx, [ebp - 4]
+    mov esi, ecx
+    mov edi, ebx
+    mov ecx, [esp]
     rep movsb
     pop ecx
     ret
