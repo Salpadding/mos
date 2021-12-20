@@ -122,9 +122,6 @@ mem_size:
 
 ; jump into protection mode
 start:
-    mov sp, LOADER_BASE_ADDR
-    mov bp, sp
-
     call mem_size
 
     ; a20
@@ -199,8 +196,8 @@ p_mode_start:
     or  eax, 1 << 31
     mov cr0, eax
 
-    ; increase stack base with 3GB
-    add esp, 0xc0000000
+    ; increase stack base to 3GB
+    mov esp, 0xbfffffff
     mov ebp, esp
 
     call cls_p
@@ -267,6 +264,12 @@ get_pte:
     mov eax, [eax]
     ret
 
+; memory allocation
+
+; logical -> physical
+; [0, 1M) -> [0, 1M)
+; [3G, 3G + 1m) -> [0, 1M)
+; [3G - 1m, 3G) -> [1M, 2M)
 setup_page:
     ; for(int i = 0; i < 1024; i++) pdes[i] = 0
     mov ecx, 4096
@@ -279,9 +282,14 @@ setup_page:
     ; let [0, 1mb) in virtual map to physical [0, 1M)
     ; pdes[0] = 7 || pdes + 4096
     create_pde 0,   7, PDE_START + 4096 * 1
+
     ; let [3G, 3G+ 1mb) in virtual map to physical [0, 1M)
     ; pdes[768] = pdes[0]
     create_pde 768, 7, PDE_START + 4096 * 1
+
+    ; create pde for stack
+    create_pde 767, 7, PDE_START + 4096 * 2
+
     ; pdes[1023] = 7 | pdes
     create_pde 1023,7, PDE_START
 
@@ -296,6 +304,15 @@ setup_page:
     push dword PDE_START + 4096 * 1
     call mmap
     add esp, 16
+
+
+    ; allocate 1M stack
+    push dword 7
+    push dword 256
+    push dword 0x100000
+    push dword PDE_START + 4096 * 2 + 4 * (1024 - 256)
+    call mmap
+    add  esp, 16
     ret
 
 ; void kernel_init();
@@ -371,6 +388,6 @@ mem_cpy:
 times 1024 -($-$$) db 0
 
 asm_api:
-    mov eax, ebx
+    mov eax, [esp + 4]
     ret
     

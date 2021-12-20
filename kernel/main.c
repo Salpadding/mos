@@ -22,7 +22,7 @@ int main()
     asm_api e = ASM_API;
     u32_t rt = e('a');
     cls();
-    put_char('a');
+    put_char(rt);
     put_char('\n');
     puts("hello world!\n");
     int a = 0;
