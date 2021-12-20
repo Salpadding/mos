@@ -16,7 +16,6 @@ mov cx, LOADER_SECTORS
 mov dx, LOADER_BASE_ADDR
 call read_n_sec
 
-; load kernel to [0x70000, )
 mov ax, KERNEL_BASE_ADDR >> 4
 mov ds, ax
 
@@ -28,12 +27,13 @@ call read_n_sec
 mov ax, 0
 mov ds, ax
 
+mov ebx, 0
 jmp LOADER_BASE_ADDR
 
 ; read_n_sec(start_sec, n, dst)
 ; read_n_sec(bx, cx, dx)
+; read_n_sec(bp - 2, bp - 4, bp - 6)
 ; start_sec <= 65535, n <= 65535
-; bp + 2, bp + 4, bp + 6
 read_n_sec:
     push bp
     mov  bp, sp

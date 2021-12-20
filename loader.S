@@ -2,7 +2,6 @@
 SECTION LOADER vstart=LOADER_BASE_ADDR
 PDE_START equ 0x100000
 
-; enter protect mode
 jmp start
 
 ; pdes[i] = %2 || %3
@@ -369,4 +368,9 @@ mem_cpy:
     pop ecx
     ret
 
+times 1024 -($-$$) db 0
+
+asm_api:
+    mov eax, ebx
+    ret
     

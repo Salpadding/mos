@@ -1,26 +1,8 @@
 const fs = require('fs')
 const path = require('path')
 const bin = fs.readFileSync(path.join(__dirname, 'kernel.bin'))
-
-// memory
 const mem = fs.readFileSync(path.join(__dirname, 'dump.bin'))
 
-
-// 1. assert kernel load success
-for(let i = 0; i < bin.length; i++) {
-    if (mem[i + 0x70000] != bin[i]) {
-        console.log('memory load failed')
-        process.exit(1)
-    }
-}
-
-
-// for(let i = 0x70000 + bin.length; i < mem.length; i++) {
-//     if (mem[i] !== 0) {
-//         console.log(`write overflow at 0x${i.toString(16)}`)
-//         process.exit(1)
-//     }
-// }
 
 // size of program header = 32 byte
 const phentsize = bin.readUInt16LE(42)
@@ -50,7 +32,7 @@ for(let i = 0; i < phnum; i++) {
 
 
         for(let j = 0; j < fileSz; j++) {
-            if(mem[vAddr + j] !== bin[segOff + j]) {
+            if(mem[vAddr + j - 0xc0000000] !== bin[segOff + j]) {
                 console.log(`segment load failed ${i}`)
                 process.exit(1)
             }
