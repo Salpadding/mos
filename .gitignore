@@ -6,3 +6,9 @@ bochsout.txt
 bx_enh_dbg.ini
 
 
+
+
+# Added by cargo
+
+/target
+Cargo.lock

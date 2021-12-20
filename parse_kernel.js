@@ -1,7 +1,6 @@
 const fs = require('fs')
 const path = require('path')
 const bin = fs.readFileSync(path.join(__dirname, 'kernel.bin'))
-const mem = fs.readFileSync(path.join(__dirname, 'dump.bin'))
 
 
 // size of program header = 32 byte
@@ -30,13 +29,6 @@ for(let i = 0; i < phnum; i++) {
         const fileSz = bin.readUInt32LE(off + 16)
         const memSz = bin.readUInt32LE(off + 20)
 
-
-        for(let j = 0; j < fileSz; j++) {
-            if(mem[vAddr + j - 0xc0000000] !== bin[segOff + j]) {
-                console.log(`segment load failed ${i}`)
-                process.exit(1)
-            }
-        }
 
         console.log ({
             type: type === 0x6474e551 ? 'PT_GNU_STACK' : type.toString(),
