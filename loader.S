@@ -4,6 +4,12 @@ PDE_START equ 0x100000
 
 jmp start
 
+times 8 - ($ - $$) db 0
+
+gdt_ptr_addr:
+    dd 0
+
+
 ; pdes[i] = %2 || %3
 ; for 0 <= i < 1024 pde(i) address = 1M + i * 4
 ; create page directory entry at i with attribute 
@@ -196,8 +202,7 @@ p_mode_start:
     or  eax, 1 << 31
     mov cr0, eax
 
-    ; increase stack base to 3GB
-    mov esp, 0xbfffffff
+    mov esp, 0xbfeffff0 
     mov ebp, esp
 
     call cls_p
@@ -208,7 +213,9 @@ p_mode_start:
 
     call kernel_init
 
-    jmp SELECTOR_CODE:KERNEL_ENTRY
+    mov ebx, gdt_ptr_addr
+    mov dword [ebx], gdt_ptr
+    call SELECTOR_CODE:KERNEL_ENTRY
 
 
 ; %1 = pte address, %2 = physical address start, %3 = page count, %4 = attribute
@@ -269,7 +276,7 @@ get_pte:
 ; logical -> physical
 ; [0, 1M) -> [0, 1M)
 ; [3G, 3G + 1m) -> [0, 1M)
-; [3G - 1m, 3G) -> [1M, 2M)
+; [3G - 2m, 3G-1m) -> [1M, 2M)
 setup_page:
     ; for(int i = 0; i < 1024; i++) pdes[i] = 0
     mov ecx, 4096
@@ -310,7 +317,7 @@ setup_page:
     push dword 7
     push dword 256
     push dword 0x100000
-    push dword PDE_START + 4096 * 2 + 4 * (1024 - 256)
+    push dword PDE_START + 4096 * 2 + 4 * (1024 - 512)
     call mmap
     add  esp, 16
     ret
@@ -384,8 +391,6 @@ mem_cpy:
     rep movsb
     pop ecx
     ret
-
-times 1024 -($-$$) db 0
 
 asm_api:
     mov eax, [esp + 4]

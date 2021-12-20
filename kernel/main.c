@@ -2,29 +2,33 @@
 #define VGA_WORDS 0x4000
 #define VGA_LINES 25
 #define VGA_COLS 80
-#define ASM_API (0x800 + 1024)
+#define LOADER_DATA (0x800 + 8)
 
 typedef unsigned long u32_t;
 typedef unsigned short u16_t;
 
+struct loader_data_st
+{
+    u32_t gdt_ptr_addr
+};
+
 // vga col  [0, 79]
 static u32_t vga_col = 0;
-
-typedef u32_t (*asm_api)(u32_t x);
 
 int cls();
 void next_line();
 void put_char(char x);
 void puts(const char *str);
+void put_hex(u32_t u);
 
 int main()
 {
-    asm_api e = ASM_API;
-    u32_t rt = e('a');
-    cls();
-    put_char(rt);
-    put_char('\n');
     puts("hello world!\n");
+    struct loader_data_st * d = LOADER_DATA;
+
+    put_hex(d->gdt_ptr_addr);
+    put_char('\n');
+
     int a = 0;
     int b = 0;
     while (1)
@@ -45,6 +49,38 @@ int cls()
     }
 
     return 0;
+}
+
+void put_hex(u32_t x)
+{
+    static const char* chars = "0123456789abcdef";
+    if (x == 0)
+    {
+        put_char('0');
+        return;
+    }
+
+    #define BUF_SIZE 32
+    char buf[BUF_SIZE];
+    int i = 0;
+
+    while(x != 0)
+    {
+        u32_t y = x % 16;
+        x = x / 16;
+        buf[i] = chars[y];
+        i++;
+    }
+
+    char buf2[BUF_SIZE];
+
+    for(int j = 0; j < i; j++) 
+    {
+        buf2[j] = buf[i - j - 1];
+    }
+    buf2[i] = '\0';
+    puts("0x");
+    puts(buf2);
 }
 
 void put_char(char c)
