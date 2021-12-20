@@ -6,7 +6,7 @@ mov ax, 0
 mov ds, ax
 mov es, ax
 mov ss, ax
-mov sp, MBR_BASE_ADDR
+mov sp, LOADER_BASE_ADDR - 8
 mov bp, sp
 
 

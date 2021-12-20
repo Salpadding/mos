@@ -1,5 +1,16 @@
 # MOS
 
+## Memory allocation
+
+1. 0-0x4ff              reserved
+2. 0x500-0x7ff          stack area for mbr and kernel loader
+3. 0x800-0xfff          kernel loader, gdt (2kb)
+5. 0x1000-0x3ffff       kernel segments (252kb)
+6. 0x40000-0x7ffff      kernel image    (256kb) 
+4. 0x80000-0xfffff      reserved for hardware
+5. 0x100000-0x2003ff    page directory entry and page descriptor entries (1MB + 1kb)
+6. 0x300000-0x3fffff    stack area for kernel (1MB)
+
 ## Run
 
 1. install bochs and nasm

@@ -7,7 +7,7 @@ jmp start
 times 8 - ($ - $$) db 0
 
 gdt_ptr_addr:
-    dd 0
+    dd gdt_ptr
 
 
 ; pdes[i] = %2 || %3
@@ -189,10 +189,6 @@ p_mode_start:
     mov es, ax
     mov ss, ax
 
-    mov esp, LOADER_BASE_ADDR
-    mov ebp, esp
-
-
     ; enable paging
     call setup_page
     mov  eax, PDE_START
@@ -213,8 +209,6 @@ p_mode_start:
 
     call kernel_init
 
-    mov ebx, gdt_ptr_addr
-    mov dword [ebx], gdt_ptr
     call SELECTOR_CODE:KERNEL_ENTRY
 
 
@@ -316,7 +310,7 @@ setup_page:
     ; allocate 1M stack
     push dword 7
     push dword 256
-    push dword 0x100000
+    push dword 0x300000
     push dword PDE_START + 4096 * 2 + 4 * (1024 - 512)
     call mmap
     add  esp, 16

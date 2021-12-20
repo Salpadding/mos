@@ -90,7 +90,7 @@
 #display_library: nogui
 #display_library: rfb
 #display_library: sdl
-display_library: sdl2
+display_library: win32, options="gui_debug"
 #display_library: term
 #display_library: vncsrv
 # "traphotkeys" - system hotkeys not handled by host OS, but sent to guest
