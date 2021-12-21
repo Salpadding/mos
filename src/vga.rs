@@ -1,7 +1,7 @@
 use core::fmt;
 use core::fmt::Write;
 
-const VGA_START: usize = 0xc00b8000;
+const VGA_START: usize = 0xb8000;
 const VGA_WORDS: usize = 0x4000;
 const VGA_LINES: usize = 25;
 const VGA_COLS: usize = 80;
@@ -31,7 +31,7 @@ impl fmt::Write for Writer {
     }
 }
 
-pub fn _print(args: fmt::Arguments) {
+pub extern "C" fn _print(args: fmt::Arguments) {
     let mut w = Writer {};
     w.write_fmt(args);
 }

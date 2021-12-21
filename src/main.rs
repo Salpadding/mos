@@ -7,7 +7,7 @@
 #![feature(lang_items)]
 
 use core::panic::PanicInfo;
-use crate::loader::{gdt, loader_api};
+use crate::loader::{gdt, asm_api};
 
 use crate::vga::{cls, put_char, puts};
 
@@ -27,16 +27,14 @@ mod idt;
 #[link_section = ".entry"]
 pub extern "C" fn _start() -> ! {
     cls();
-    let api = loader_api();
-    println!("{}", api(3, cb as usize as u32));
-    println!("{}", cb as usize);
-    println!("{}", cb as usize);
+    println!("hello world!");
+    println!("hello world! {:X}", 0x90000);
     loop {}
-
 }
 
-extern "C" fn cb(t: u32) {
-   println!("call back");
+
+extern "C" fn cb(x: u32, y: u32) {
+   println!("call back {}, {}", x, y);
 }
 
 #[panic_handler]

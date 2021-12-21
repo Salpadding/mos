@@ -5,9 +5,12 @@ PDE_START equ 0x100000
 
 jmp start
 
+
 times 8 - ($ - $$) db 0
 
 [bits 32]
+mc_read_n_sec edx, esi, ebx
+
 loader_api:
     cmp dword [esp + 4], 1
     jz .gdt
@@ -21,12 +24,21 @@ loader_api:
 .cb:
     mov eax, [esp + 8]
     push eax
+    push dword 129
     call eax
+    pop eax
     pop eax
     ret
 .lidt:
     mov eax, [esp + 8]
     ret
+
+kernel_int_cb:
+    dw 0
+
+; interrupt handle entry
+int_handle:
+    iret
 
 [bits 16]
 
@@ -210,16 +222,16 @@ p_mode_start:
     mov ss, ax
 
     ; enable paging
-    call setup_page
-    mov  eax, PDE_START
-    mov  cr3, eax
+    ; call setup_page
+    ; mov  eax, PDE_START
+    ; mov  cr3, eax
 
-    mov eax, cr0
-    or  eax, 1 << 31
-    mov cr0, eax
+    ; mov eax, cr0
+    ; or  eax, 1 << 31
+    ; mov cr0, eax
 
-    mov esp, 0xbfeffff0 
-    mov ebp, esp
+    ; mov esp, 0xbfeffff0 
+    ; mov ebp, esp
 
     call cls_p
 
@@ -227,7 +239,11 @@ p_mode_start:
     ; ebp + 4 = msg
     call puts_p
 
-    call kernel_init
+    mov ebx, 1 + LOADER_SECTORS
+    mov ecx, KERNEL_SECTORS
+    mov edx, KERNEL_ENTRY
+    call read_n_sec
+
     call SELECTOR_CODE:KERNEL_ENTRY
 
 
@@ -333,74 +349,4 @@ setup_page:
     push dword PDE_START + 4096 * 2 + 4 * (1024 - 512)
     call mmap
     add  esp, 16
-    ret
-
-; void kernel_init();
-kernel_init:
-    ; allocate three local variable
-    push ebp
-    mov ebp, esp
-    sub esp, 12
-
-    mov ebx, KERNEL_BASE_ADDR 
-    mov esi, 28
-
-    ; [ebp - 4] offset of headers
-    mov eax, [ebx + esi]
-    mov dword [ebp - 4], eax
-
-    mov esi, 44
-    mov eax, 0
-    mov ax,  [ebx + esi]
-    ; [ebp - 8] number of headers
-    mov dword [ebp - 8], eax
-
-    ; [ebp - 12] current header index
-    mov eax, 0
-    mov [ebp - 12], eax
-.loop:
-    mov eax, 32
-    mul dword [ebp - 12] 
-    add eax,  [ebp - 4]
-    add eax,  KERNEL_BASE_ADDR
-    ; continue only if type == 1
-    cmp dword [eax], 1
-    jnz .cond
-
-    ; call memcpy
-
-    ; dest
-    mov ebx, [eax + 8]
-
-    ; size
-    mov edx, [eax + 16]
-
-    ; source
-    mov eax, [eax + 4]
-    add eax, KERNEL_BASE_ADDR
-    mov ecx, eax
-    call mem_cpy
-.cond:
-    add dword [ebp - 12], 1
-    mov eax, [ebp - 8]
-    cmp [ebp - 12], eax
-    jz .done
-    jmp .loop
-
-.done:
-    add esp, 12
-    pop ebp
-    ret
-
-; mem_cpy(dst, src, size)
-; mem_cpy(ebx, ecx, edx)
-mem_cpy:
-    push edx
-    cld
-    ; backup ecx
-    mov esi, ecx
-    mov edi, ebx
-    mov ecx, [esp]
-    rep movsb
-    pop ecx
     ret

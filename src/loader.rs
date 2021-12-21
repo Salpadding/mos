@@ -1,26 +1,26 @@
-pub const LOADER_API_OFF: usize = 0x800 + 8;
+pub const ASM_API_OFF: usize = 0x800 + 8;
 
 mod methods {
     const GDT_PTR_ADDR: u32 = 1;
     const LIDT: u32 = 2;
 }
 
-type LoaderApi = extern "C" fn(method: u32, p0: u32) -> u32;
+type ASM_API = extern "C" fn(method: u32, p0: u32) -> u32;
 
-pub fn loader_api() -> LoaderApi {
+pub fn asm_api() -> ASM_API {
     unsafe {
-        core::mem::transmute(LOADER_API_OFF)
+        core::mem::transmute(ASM_API_OFF)
     }
 }
 
 pub fn gdt() -> &'static mut GdtPtr {
-    let api = loader_api();
+    let api = asm_api();
     let x = api(1, 0) as usize;
     unsafe { &mut *(x as *mut _) }
 }
 
 pub fn lidt(addr: usize)  {
-    let api = loader_api();
+    let api = asm_api();
     api(2, addr as u32);
 }
 

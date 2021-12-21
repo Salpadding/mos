@@ -24,10 +24,7 @@ else
     rep_line bochsrc.txt 93 'display_library: win32, options="gui_debug"'
 fi
 
-# build kernel on a 32bit kali system
-cargo build --release
-rm -rf kernel.bin
-cp target/x86*/release/mos kernel.bin
+node make_kernel.js
 
 KERNEL_SECTORS=`sectors kernel.bin`
 rep_line boot.inc 5 "KERNEL_SECTORS equ $KERNEL_SECTORS"

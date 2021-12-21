@@ -4,12 +4,44 @@
 
 1. 0-0x4ff              reserved
 2. 0x500-0x7ff          stack area for mbr and kernel loader
-3. 0x800-0xfff          kernel loader, gdt (2kb)
-5. 0x1000-0x3ffff       kernel code (252kb)
-6. 0x40000-0x7ffff      kernel image    (256kb) 
+3. 0x800-0x0x7ffff      kernel loader, gdt, idt, asm api (500kb)
 4. 0x80000-0xfffff      reserved for hardware
-5. 0x100000-0x2003ff    page directory entry and page descriptor entries (1MB + 1kb)
-6. 0x300000-0x3fffff    stack area for kernel (1MB)
+
+--- (1MB)
+
+5. 0x100000-0x2fffff    page directory entry and page descriptor entries (2MB)
+
+
+--- (3MB)
+
+6. 0x300000-0x6ffff    kernal (4MB)
+
+--- (7MB)
+
+
+8. 0x700000-0x7fffff    stack area for kernal (1M)
+
+
+--- (8MB)
+
+
+## Stages
+
+1. mbr 
+
+read loader image into memory, jump into loader
+
+
+2. loader
+
+- enter protected mode
+- setup page table
+- read kernel image, then execute 
+
+
+3. kernel
+
+
 
 ## Run
 
