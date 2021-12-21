@@ -16,14 +16,6 @@ mov cx, LOADER_SECTORS
 mov dx, LOADER_BASE_ADDR
 call read_n_sec
 
-mov ax, KERNEL_BASE_ADDR >> 4
-mov ds, ax
-
-
-mov ax, 0
-mov ds, ax
-
-mov ebx, 0
 jmp LOADER_BASE_ADDR
 
 mc_read_n_sec dx, si, bx

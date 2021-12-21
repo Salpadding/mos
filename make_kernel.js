@@ -33,16 +33,7 @@ for (let i = 0; i < phnum; i++) {
     const fileSz = bin.readUInt32LE(off + 16)
     const memSz = bin.readUInt32LE(off + 20)
 
-    console.log({
-        segOff,
-        vAddr: vAddr.toString(16),
-        pAddr,
-        fileSz,
-        memSz
-    })
 
-    if(vAddr < memOff)
-        continue
     bin.copy(newBin, vAddr - memOff, segOff, segOff + fileSz)
 }
 

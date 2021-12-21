@@ -7,8 +7,6 @@
 #![feature(lang_items)]
 
 use core::panic::PanicInfo;
-use crate::loader::{gdt, asm_api};
-
 use crate::vga::{cls, put_char, puts};
 
 // see https://docs.rust-embedded.org/embedonomicon/smallest-no-std.html
@@ -17,8 +15,9 @@ use crate::vga::{cls, put_char, puts};
 extern "C" fn eh_personality() {}
 
 mod vga;
-mod loader;
 mod idt;
+mod asm;
+mod page;
 
 
 /// The name **must be** `_start`, otherwise the compiler doesn't output anything
@@ -27,14 +26,12 @@ mod idt;
 #[link_section = ".entry"]
 pub extern "C" fn _start() -> ! {
     cls();
-    println!("hello world!");
-    println!("hello world! {:X}", 0x90000);
-    loop {}
-}
 
-
-extern "C" fn cb(x: u32, y: u32) {
-   println!("call back {}, {}", x, y);
+    if !asm::page_enabled() {
+        asm::page_setup()
+    } else {
+        loop {}
+    }
 }
 
 #[panic_handler]

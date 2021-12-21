@@ -5,30 +5,42 @@ PDE_START equ 0x100000
 
 jmp start
 
-
 times 8 - ($ - $$) db 0
 
+; loader_api, 1 = gdt_ptr, 2 = lidt, 3 = page enabled?
 [bits 32]
-mc_read_n_sec edx, esi, ebx
-
 loader_api:
     cmp dword [esp + 4], 1
     jz .gdt
     cmp dword [esp + 4], 2
     jz .lidt
     cmp dword [esp + 4], 3
-    jz .cb
+    jz .page
+    cmp dword [esp + 4], 4
+    jz .set_page
 .gdt:
     mov eax, gdt_ptr
     ret
-.cb:
-    mov eax, [esp + 8]
-    push eax
-    push dword 129
-    call eax
-    pop eax
-    pop eax
+.page:
+    mov eax, [page_enabled]
     ret
+.set_page:
+    ; the new stack base
+    mov ecx, [esp + 8]
+    ; enable paging
+    ; call setup_page
+    mov  eax, PDE_START
+    mov  cr3, eax
+
+    mov eax, cr0
+    or  eax, 1 << 31
+    mov cr0, eax
+
+    mov esp, ecx
+    mov ebp, esp
+
+
+    call SELECTOR_CODE:KERNEL_ENTRY
 .lidt:
     mov eax, [esp + 8]
     ret
@@ -39,6 +51,11 @@ kernel_int_cb:
 ; interrupt handle entry
 int_handle:
     iret
+
+page_enabled:
+    dd 0
+
+mc_read_n_sec edx, esi, ebx
 
 [bits 16]
 
@@ -160,8 +177,6 @@ mem_size:
 
 ; jump into protection mode
 start:
-    call mem_size
-
     ; a20
     in al, 0x92
     or al, 0x02
@@ -182,62 +197,13 @@ start:
     ; set cs = gdt[1], ip = p_mode_start
     jmp SELECTOR_CODE:p_mode_start
 
-loading db 'Loading...' , 0
-msg db 'Protect mode...' , 0
-
 [bits 32]
-; clear screen in protect mode
-cls_p: 
-    mov ebx, 0xc00b8000
-    mov ecx, 0x4000
-.lp:
-    mov word [ebx], 0x0f20
-    add ebx, 2
-    loop .lp
-    ret
-
-; puts_p(ebx)
-puts_p:
-    push ebx
-    mov ebx, 0xc00b8000
-    mov esi, [esp]
-    jmp .lp
-.lp:
-    lodsb
-    mov ah, 0xf
-    or al, al
-    jz .done
-    mov [ebx], ax
-    add ebx, 2
-    jmp .lp
-.done:
-    pop ebx
-    ret
-
 p_mode_start:
     ; initialize data, stack base
     mov ax, SELECTOR_DATA
     mov ds, ax
     mov es, ax
     mov ss, ax
-
-    ; enable paging
-    ; call setup_page
-    ; mov  eax, PDE_START
-    ; mov  cr3, eax
-
-    ; mov eax, cr0
-    ; or  eax, 1 << 31
-    ; mov cr0, eax
-
-    ; mov esp, 0xbfeffff0 
-    ; mov ebp, esp
-
-    call cls_p
-
-    mov ebx, msg
-    ; ebp + 4 = msg
-    call puts_p
 
     mov ebx, 1 + LOADER_SECTORS
     mov ecx, KERNEL_SECTORS
