@@ -1,3 +1,4 @@
+[bits 16]
 %include "boot.inc"
 SECTION LOADER vstart=LOADER_BASE_ADDR
 PDE_START equ 0x100000
@@ -6,9 +7,28 @@ jmp start
 
 times 8 - ($ - $$) db 0
 
-gdt_ptr_addr:
-    dd gdt_ptr
+[bits 32]
+loader_api:
+    cmp dword [esp + 4], 1
+    jz .gdt
+    cmp dword [esp + 4], 2
+    jz .lidt
+    cmp dword [esp + 4], 3
+    jz .cb
+.gdt:
+    mov eax, gdt_ptr
+    ret
+.cb:
+    mov eax, [esp + 8]
+    push eax
+    call eax
+    pop eax
+    ret
+.lidt:
+    mov eax, [esp + 8]
+    ret
 
+[bits 16]
 
 ; pdes[i] = %2 || %3
 ; for 0 <= i < 1024 pde(i) address = 1M + i * 4
@@ -208,7 +228,6 @@ p_mode_start:
     call puts_p
 
     call kernel_init
-
     call SELECTOR_CODE:KERNEL_ENTRY
 
 
@@ -385,8 +404,3 @@ mem_cpy:
     rep movsb
     pop ecx
     ret
-
-asm_api:
-    mov eax, [esp + 4]
-    ret
-    
