@@ -26,7 +26,7 @@ fi
 
 # build kernel on a 32bit kali system
 cargo build --release
-rm kernel.bin
+rm -rf kernel.bin
 cp target/x86*/release/mos kernel.bin
 
 KERNEL_SECTORS=`sectors kernel.bin`

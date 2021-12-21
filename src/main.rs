@@ -8,34 +8,26 @@
 
 // see https://docs.rust-embedded.org/embedonomicon/smallest-no-std.html
 #[lang = "eh_personality"]
+#[no_mangle]
 extern "C" fn eh_personality() {}
 
+mod vga;
 use core::panic::PanicInfo;
-use core::sync::atomic;
-use core::sync::atomic::Ordering;
+use crate::vga::{cls, puts, put_char};
 
-
-#[no_mangle]
 /// The name **must be** `_start`, otherwise the compiler doesn't output anything
 /// to the object file. I don't know why it is like this.
+#[no_mangle]
+#[link_section = ".entry"]
 fn _start() -> ! {
-    put_char('c' as u8);
+    cls();
+    println!("hello world");
     loop {
     }
 }
 
-fn put_char(s: u8) {
-    let x: *mut u16 = (0xb8000 + 80 * 2) as usize as *mut _;
-    unsafe {
-        let y: u16 = (s as u16) | 0x0f00;
-        *x = y;
-    }
-}
-
-#[inline(never)]
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
     loop {
-        atomic::compiler_fence(Ordering::SeqCst);
     }
 }
