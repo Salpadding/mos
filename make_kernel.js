@@ -2,7 +2,7 @@
 const fs = require('fs')
 const path = require('path')
 const cp = require('child_process')
-const memOff = 0x300000
+const memOff = 0x200000
 
 cp.execSync('cargo build --release')
 

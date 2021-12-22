@@ -9,17 +9,17 @@
 
 --- (1MB)
 
-5. 0x100000-0x2fffff    page directory entry and page descriptor entries (2MB)
+5. 0x100000-0x1fffff    page directory entry and page descriptor entries (1MB)
 
 
---- (3MB)
+--- (2MB)
 
-6. 0x300000-0x6ffff    kernal (4MB)
+6. 0x200000-0x5ffff    kernal (4MB)
 
---- (7MB)
+--- (6MB)
 
 
-8. 0x700000-0x7fffff    stack area for kernal (1M)
+8. 0x600000-0x7fffff    stack area for kernal (2M)
 
 
 --- (8MB)

@@ -10,12 +10,16 @@ times 8 - ($ - $$) db 0
 ; loader_api, 1 = gdt_ptr, 2 = lidt, 3 = page enabled?
 [bits 32]
 loader_api:
+    ; gdt ptr
     cmp dword [esp + 4], 1
     jz .gdt
+    ; load interrupt descriptor table
     cmp dword [esp + 4], 2
     jz .lidt
+    ; if page enabled
     cmp dword [esp + 4], 3
     jz .page
+    ; setup page
     cmp dword [esp + 4], 4
     jz .set_page
 .gdt:
@@ -38,7 +42,11 @@ loader_api:
 
     mov dword [page_enabled], 1
 
-    call SELECTOR_CODE:KERNEL_ENTRY
+    mov eax, ecx
+    mov esp, eax,
+    mov ebp, esp
+
+   call SELECTOR_CODE:KERNEL_ENTRY
 .lidt:
     mov eax, [esp + 8]
     ret

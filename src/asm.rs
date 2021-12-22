@@ -35,9 +35,9 @@ pub fn page_enabled() -> bool {
     api(methods::PAGE_ENABLED, 0) != 0
 }
 
-pub fn page_setup() -> ! {
+pub fn page_setup(stack_high: usize) -> ! {
     let api = asm_api();
-    api(methods::PAGE_SETUP, 127);
+    api(methods::PAGE_SETUP, stack_high as u32);
     loop {
     }
 }

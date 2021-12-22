@@ -26,9 +26,9 @@ mod page;
 #[link_section = ".entry"]
 pub extern "C" fn _start() -> ! {
     if !asm::page_enabled() {
-        page::init_page();
+        let stack_high = page::init_page();
         println!("hello world1");
-        asm::page_setup()
+        asm::page_setup(stack_high)
     } else {
         println!("hello world2");
         loop {}
@@ -37,5 +37,6 @@ pub extern "C" fn _start() -> ! {
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
+    println!("{:#?}", _info);
     loop {}
 }

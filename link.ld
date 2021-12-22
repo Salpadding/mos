@@ -1,5 +1,5 @@
 SECTIONS {
-    . =  0x300000;
+    . =  0x200000;
     .entry  : { *(.entry) }
     .text   : { *(.text*) }      /* Excutable code                       */
     .rodata : { *(.rodata*) }    /* Constants (R/O)                      */
