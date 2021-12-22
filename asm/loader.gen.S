@@ -195,6 +195,77 @@ intr%1entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
 %endmacro
 
 ; insert idt code after this line
+idt:
+   dd intr0x00entry
+   dd intr0x01entry
+   dd intr0x02entry
+   dd intr0x03entry
+   dd intr0x04entry
+   dd intr0x05entry
+   dd intr0x06entry
+   dd intr0x07entry
+   dd intr0x08entry
+   dd intr0x09entry
+   dd intr0x0aentry
+   dd intr0x0bentry
+   dd intr0x0centry
+   dd intr0x0dentry
+   dd intr0x0eentry
+   dd intr0x0fentry
+   dd intr0x10entry
+   dd intr0x11entry
+   dd intr0x12entry
+   dd intr0x13entry
+   dd intr0x14entry
+   dd intr0x15entry
+   dd intr0x16entry
+   dd intr0x17entry
+   dd intr0x18entry
+   dd intr0x19entry
+   dd intr0x1aentry
+   dd intr0x1bentry
+   dd intr0x1centry
+   dd intr0x1dentry
+   dd intr0x1eentry
+   dd intr0x1fentry
+   dd intr0x20entry
+
+idt_rust:
+   times 33 dd 0
+
+VECTOR 0x00, ZERO
+VECTOR 0x01, ZERO
+VECTOR 0x02, ZERO
+VECTOR 0x03, ZERO
+VECTOR 0x04, ZERO
+VECTOR 0x05, ZERO
+VECTOR 0x06, ZERO
+VECTOR 0x07, ZERO
+VECTOR 0x08, ERROR_CODE
+VECTOR 0x09, ZERO
+VECTOR 0x0a, ERROR_CODE
+VECTOR 0x0b, ERROR_CODE
+VECTOR 0x0c, ZERO
+VECTOR 0x0d, ERROR_CODE
+VECTOR 0x0e, ERROR_CODE
+VECTOR 0x0f, ZERO
+VECTOR 0x10, ZERO
+VECTOR 0x11, ERROR_CODE
+VECTOR 0x12, ZERO
+VECTOR 0x13, ZERO
+VECTOR 0x14, ZERO
+VECTOR 0x15, ZERO
+VECTOR 0x16, ZERO
+VECTOR 0x17, ZERO
+VECTOR 0x18, ERROR_CODE
+VECTOR 0x19, ZERO
+VECTOR 0x1a, ERROR_CODE
+VECTOR 0x1b, ERROR_CODE
+VECTOR 0x1c, ZERO
+VECTOR 0x1d, ERROR_CODE
+VECTOR 0x1e, ERROR_CODE
+VECTOR 0x1f, ZERO
+VECTOR 0x20, ZERO
 ;;; IDT_CODE ;;;
 
 intr_exit:

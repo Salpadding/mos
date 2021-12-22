@@ -123,11 +123,65 @@ function kernel() {
     fs.writeFileSync('build/kernel.bin', newBin)
 }
 
+function preprocess() {
+    function id(i)  {
+        let x = i.toString(16)
+        while (x.length < 2) {
+            x = '0' + x
+        }
+        return '0x'  + x
+    }
+
+
+    const vector_cnt = 33
+    const error_vectors = [8, 0x0a, 0x0b, 0x0d, 0x0e, 0x11, 0x18, 0x1a, 0x1b, 0x1d, 0x1e]
+
+
+    const file = fs.readFileSync(path.join(__dirname, 'asm/loader.S'), 'utf8')
+    const lines = file.split('\n')
+
+    let j = 0
+
+    for(let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith(';;; IDT_CODE')){
+            console.log(`insert code at line ${i}`)
+            j = i
+        }
+    }
+
+
+    // vector codes
+    let idt = '\nidt:\n'
+
+    for(let i = 0; i < vector_cnt; i++) {
+        idt += `   dd intr${id(i)}entry\n`
+    }
+
+    idt += '\nidt_rust:\n   times 33 dd 0\n'
+
+
+    let vcs = '\n'
+    for(let i = 0; i < vector_cnt; i++) {
+        const err = error_vectors.indexOf(i) >= 0
+        vcs += `VECTOR ${id(i)}, ${err ? 'ERROR_CODE' : 'ZERO'}\n`
+    }
+
+    let x = lines.slice(0, j).join('\n')
+
+    let y = lines.slice(j, lines.length).join('\n')
+
+    fs.writeFileSync(path.join(__dirname, 'asm/loader.gen.S'), x + idt + vcs + y)
+
+}
+
 switch (process.env.SRC) {
     case 'kernel':
         kernel()
         break
     case 'loader':
         loader()
+        break
+    case 'gen':
+        preprocess()
         break
 }

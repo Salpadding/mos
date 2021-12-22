@@ -24,13 +24,16 @@ else
     rep_line bochsrc.txt 93 'display_library: win32, options="gui_debug"'
 fi
 
+# preprocessing
+SRC=gen node make.js
+
 SRC=kernel node make.js
 
 KERNEL_SECTORS=`sectors build/kernel.bin`
 rep_line asm/boot.inc 5 "KERNEL_SECTORS equ $KERNEL_SECTORS"
 
 pushd asm>/dev/null
-nasm -o ../build/loader.bin loader.S
+nasm -o ../build/loader.bin loader.gen.S
 popd>/dev/null
 
 # get sectors of loader.bin

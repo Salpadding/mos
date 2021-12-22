@@ -30,6 +30,7 @@ pub extern "C" fn _start() -> ! {
         let stack_high = page::init_page();
         asm::page_setup(stack_high)
     } else {
+        println!("page setup success");
         loop {}
     }
 }
