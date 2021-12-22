@@ -24,18 +24,20 @@ else
     rep_line bochsrc.txt 93 'display_library: win32, options="gui_debug"'
 fi
 
-node make_kernel.js
+SRC=kernel node make.js
 
-KERNEL_SECTORS=`sectors kernel.bin`
+KERNEL_SECTORS=`sectors build/kernel.bin`
 rep_line boot.inc 5 "KERNEL_SECTORS equ $KERNEL_SECTORS"
 
-nasm -o loader.bin loader.S
+nasm -o build/loader.bin loader.S
 
 # get sectors of loader.bin
-LOADER_SECTORS=`sectors loader.bin`
+LOADER_SECTORS=`sectors build/loader.bin`
 rep_line boot.inc 4 "LOADER_SECTORS equ $LOADER_SECTORS"
 
-nasm -o mbr.bin mbr.S
-dd if=mbr.bin of=hd60M.img bs=512 count=1 conv=notrunc
-dd if=loader.bin of=hd60M.img bs=512 count=$LOADER_SECTORS seek=1 conv=notrunc
-dd if=kernel.bin of=hd60M.img bs=512 count=$KERNEL_SECTORS seek=$((1+$LOADER_SECTORS)) conv=notrunc
+SRC=loader node make.js
+
+nasm -o build/mbr.bin mbr.S
+dd if=build/mbr.bin of=build/hd60M.img bs=512 count=1 conv=notrunc
+dd if=build/loader.bin of=build/hd60M.img bs=512 count=$LOADER_SECTORS seek=1 conv=notrunc
+dd if=build/kernel.bin of=build/hd60M.img bs=512 count=$KERNEL_SECTORS seek=$((1+$LOADER_SECTORS)) conv=notrunc

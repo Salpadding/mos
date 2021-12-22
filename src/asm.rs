@@ -1,7 +1,7 @@
 use crate::asm::methods::LIDT;
 use crate::println;
 
-pub const ASM_API_OFF: usize = 0x800 + 8;
+pub const ASM_API_OFF: usize = 0x800 + 40;
 
 type AsmApi = extern "C" fn(method: u32, p0: u32) -> u32;
 

@@ -5,6 +5,10 @@ bochsout.txt
 *.o
 bx_enh_dbg.ini
 .idea
+build
+package.json
+package-lock.json
+node_modules
 
 
 

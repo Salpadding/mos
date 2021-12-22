@@ -7,6 +7,14 @@ jmp start
 
 times 8 - ($ - $$) db 0
 
+gdt_base:
+    dd 0
+    dd 0
+    dq 0
+    dq 0
+    dq 0
+gdt_end:
+
 ; loader_api, 1 = gdt_ptr, 2 = lidt, 3 = page enabled?
 [bits 32]
 loader_api:
@@ -64,61 +72,6 @@ page_enabled:
 mc_read_n_sec edx, esi, ebx
 
 [bits 16]
-gdt_base:
-    dq 0 
-
-; define a code segment limit = 0xfffff * 4kb = 4G, only executable
-; base = 0
-code_desc:
-    ; limit 0-15
-    dw 0xFFFF
-    ; base 0-15
-    dw 0
-    ; base 16-23
-    db 0 
-
-    ; access byte
-    ; bit[3]: executable 
-    ; bits[4]: defines a code or data segment
-    ; bits[7]: must be 1
-    db 10011000b
-
-    ; flags and limit
-    ; bits[0] ~ bits[3] limit
-    ; bits[4]: reserved
-    ; bits[5]: long mode, for 64bit
-    ; bits[6]: 32bit
-    ; bits[7]: page size = 4kb
-    db 0xcf
-    ; base 23-31
-    db 0
-
-; define a data segment limit = 0xfffff * 4kb = 4G, read/writable, while not executable
-; base = 0
-data_stack_desc:
-    ; limit 0-15
-    dw 0xFFFF
-    ; base 0-15
-    dw 0
-    ; base 16-23
-    db 0 
-
-    ; access byte
-    ; bits[1]: writable
-    ; bits[4]: defines a code or data segment
-    db 10010010b
-
-    ; flags and limit
-    ; bits[0] ~ bits[3] limit
-    ; bits[4]: reserved
-    ; bits[5]: long mode, for 64bit
-    ; bits[6]: 32bit
-    ; bits[7]: page size = 4kb
-    db 0xcf
-    ; base 23-31
-    db 0
-
-gdt_end:
 
 SELECTOR_CODE   equ (1 << 3)
 SELECTOR_DATA   equ (2 << 3)
