@@ -37,10 +37,8 @@ pub fn page_enabled() -> bool {
 
 pub fn page_setup() -> ! {
     let api = asm_api();
-    let r = api(methods::PAGE_SETUP, 127);
-    println!("{}", r);
+    api(methods::PAGE_SETUP, 127);
     loop {
-
     }
 }
 

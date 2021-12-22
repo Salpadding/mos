@@ -36,9 +36,7 @@ loader_api:
     or  eax, 1 << 31
     mov cr0, eax
 
-    mov esp, ecx
-    mov ebp, esp
-
+    mov dword [page_enabled], 1
 
     call SELECTOR_CODE:KERNEL_ENTRY
 .lidt:
@@ -58,26 +56,6 @@ page_enabled:
 mc_read_n_sec edx, esi, ebx
 
 [bits 16]
-
-; pdes[i] = %2 || %3
-; for 0 <= i < 1024 pde(i) address = 1M + i * 4
-; create page directory entry at i with attribute 
-; allocate and map
-; %1 = pde index, %2 = attribute, %3 = page table address
-%macro create_pde 3
-    mov eax, 4
-    mov ebx, %1
-    mul ebx
-    add eax, PDE_START
-    mov ebx, eax
-
-    mov eax, 0
-    or  eax, %2
-    or  eax, %3
-    mov [ebx], eax
-%endmacro
-
-
 gdt_base:
     dq 0 
 
@@ -173,8 +151,6 @@ mem_size:
     add esp, 8
     ret
 
-
-
 ; jump into protection mode
 start:
     ; a20
@@ -212,107 +188,5 @@ p_mode_start:
 
     call SELECTOR_CODE:KERNEL_ENTRY
 
-
-; %1 = pte address, %2 = physical address start, %3 = page count, %4 = attribute
-;  esp + 4           , esp + 8                    ,  esp + 12  , esp + 16
-mmap:
-    ; loop n pages
-    mov ecx, [esp + 12]
-    ; pte[0] physical address, often starts with 0x10000 + 4096
-    mov ebx, [esp + 4]
-    ; physical address
-    mov eax, [esp + 8]
-.cnt:
-    mov edx, eax
-    ; set attribute
-    or edx, [esp + 16]
-    mov [ebx], edx
-    add ebx, 4
-    add eax, 4096
-    loop .cnt
-    ret
-
-
-; mapping from virtual memory x to physical memory y: 
-; address of pde[0] is 0x100000
-; pde index i = (x & 0xffc00000) >> 22
-; address of pde[i] = 0x100000 + 4 * i
-; pte index j = (x & 0x3ff000) >> 12
-; address of pte[0] = pde[i] & 0xfffff000
-; address of pte[j] = &pte[0] + 4 * j
-; address of page = pte[j] & 0xfffff000
-; y = (pte[j] & 0xfffff000) + (y & 0xfff)
-
-
-; address page table info it self
-; for ith pde
-; &pde[i] == (1023 << 22) | (1023 << 12)  | (i * 4)
-get_pde:
-    mov eax, [esp + 4]
-    shl eax, 2
-    add eax, (1023 << 22) | (1023 << 12)
-    mov eax, [eax]
-    ret
-
-; i = esp + 4, j = esp + 8
-get_pte:
-    mov eax, [esp + 4]
-    shl eax, 12
-    add eax, 1023 << 22
-    mov ebx, eax
-    mov eax, [esp + 8]
-    shl eax, 2
-    add eax, ebx
-    mov eax, [eax]
-    ret
-
-; memory allocation
-
-; logical -> physical
-; [0, 1M) -> [0, 1M)
-; [3G, 3G + 1m) -> [0, 1M)
-; [3G - 2m, 3G-1m) -> [1M, 2M)
-setup_page:
-    ; for(int i = 0; i < 1024; i++) pdes[i] = 0
-    mov ecx, 4096
-    mov ebx, PDE_START
-.clear:
-    mov byte [ebx], 0
-    inc ebx
-    loop .clear
-.pde:
-    ; let [0, 1mb) in virtual map to physical [0, 1M)
-    ; pdes[0] = 7 || pdes + 4096
-    create_pde 0,   7, PDE_START + 4096 * 1
-
-    ; let [3G, 3G+ 1mb) in virtual map to physical [0, 1M)
-    ; pdes[768] = pdes[0]
-    create_pde 768, 7, PDE_START + 4096 * 1
-
-    ; create pde for stack
-    create_pde 767, 7, PDE_START + 4096 * 2
-
-    ; pdes[1023] = 7 | pdes
-    create_pde 1023,7, PDE_START
-
-    ; create 256 pte 
-    ; attribute
-    push dword 7
-    ; page count
-    push dword 256
-    ; physical address start
-    push dword 0
-    ; pte start address
-    push dword PDE_START + 4096 * 1
-    call mmap
-    add esp, 16
-
-
-    ; allocate 1M stack
-    push dword 7
-    push dword 256
-    push dword 0x300000
-    push dword PDE_START + 4096 * 2 + 4 * (1024 - 512)
-    call mmap
-    add  esp, 16
-    ret
+; align to 4k
+times 16*1024 - ($-$$) db 0

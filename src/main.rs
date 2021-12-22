@@ -25,11 +25,12 @@ mod page;
 #[no_mangle]
 #[link_section = ".entry"]
 pub extern "C" fn _start() -> ! {
-    cls();
-
     if !asm::page_enabled() {
+        page::init_page();
+        println!("hello world1");
         asm::page_setup()
     } else {
+        println!("hello world2");
         loop {}
     }
 }
