@@ -27,17 +27,22 @@ fi
 SRC=kernel node make.js
 
 KERNEL_SECTORS=`sectors build/kernel.bin`
-rep_line boot.inc 5 "KERNEL_SECTORS equ $KERNEL_SECTORS"
+rep_line asm/boot.inc 5 "KERNEL_SECTORS equ $KERNEL_SECTORS"
 
-nasm -o build/loader.bin loader.S
+pushd asm>/dev/null
+nasm -o ../build/loader.bin loader.S
+popd>/dev/null
 
 # get sectors of loader.bin
 LOADER_SECTORS=`sectors build/loader.bin`
-rep_line boot.inc 4 "LOADER_SECTORS equ $LOADER_SECTORS"
+rep_line asm/boot.inc 4 "LOADER_SECTORS equ $LOADER_SECTORS"
 
 SRC=loader node make.js
 
-nasm -o build/mbr.bin mbr.S
+pushd asm>/dev/null
+nasm -o ../build/mbr.bin mbr.S
+popd>/dev/null
+
 dd if=build/mbr.bin of=build/hd60M.img bs=512 count=1 conv=notrunc
 dd if=build/loader.bin of=build/hd60M.img bs=512 count=$LOADER_SECTORS seek=1 conv=notrunc
 dd if=build/kernel.bin of=build/hd60M.img bs=512 count=$KERNEL_SECTORS seek=$((1+$LOADER_SECTORS)) conv=notrunc

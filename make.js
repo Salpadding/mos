@@ -10,8 +10,6 @@ function loader() {
     const gdt_len = 4
     let gdt = new BigUint64Array(bin.buffer, gdt_off, gdt_len)
 
-    for(let i = 0; i < gdt_len; i++)
-        console.log(gdt[i])
     // code segment
     gdt[1]  = gd({
         limit: 0xffffffffn,
@@ -65,7 +63,6 @@ function gd({limit, base, rw, executable, system, mode, pri, scale_4k }) {
         acc = acc | (1n << 4n)
 
     acc = acc | ((pri & 0x3n) << 5n)
-    console.log(acc.toString(2))
 
     r = r | (acc << 40n)
 
