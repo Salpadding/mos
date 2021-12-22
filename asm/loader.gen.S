@@ -39,6 +39,12 @@ asm_api:
     ; setup page
     cmp eax, 4
     jz .set_page
+    cmp eax, 5
+    jz .int_entries
+    cmp eax, 6
+    jz .int_rust
+    cmp eax, 7
+    jz .div
     mov eax, 0
     ret
 .echo:
@@ -72,8 +78,22 @@ asm_api:
 
    call SELECTOR_CODE:KERNEL_ENTRY
 .lidt:
-    mov eax, [esp + 8]
+    mov eax, [asm_buf + 4]
+    lidt [eax]
     ret
+.int_entries:
+    mov dword [asm_buf], int_entries
+    ret
+.int_rust:
+    mov dword [asm_buf], int_rust
+    ret
+.div:
+    mov edx, 0
+    mov eax, [asm_buf + 4]
+    div dword [asm_buf + 8]
+    mov [asm_buf], eax
+    ret
+
 
 kernel_int_cb:
     dw 0
@@ -166,14 +186,12 @@ p_mode_start:
     call SELECTOR_CODE:KERNEL_ENTRY
 
 ; align to 2k
-times 2*1024 - ($-$$) db 0
-
 
 %define ERROR_CODE nop		 ; 若在相关的异常中cpu已经自动压入了错误码,为保持栈中格式统一,这里不做操作.
 %define ZERO push 0		 ; 若在相关的异常中cpu没有压入错误码,为了统一栈中格式,就手工压入一个0
 
 %macro VECTOR 2
-intr%1entry:		 ; 每个中断处理程序都要压入中断向量号,所以一个中断类型一个中断处理程序，自己知道自己的中断向量号是多少
+int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一个中断类型一个中断处理程序，自己知道自己的中断向量号是多少
 
    %2				 ; 中断若有错误码会压在eip后面
 ; 以下是保存上下文环境
@@ -189,49 +207,50 @@ intr%1entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
    out 0x20,al                   ; 向主片发送
 
    push %1			 ;           ; push vector
-   call [idt_rust + %1 * 4]       ; call rust interrupt handler
-   jmp intr_exit
+   mov  dword [asm_buf], %1
+   call [int_rust]       ; call rust interrupt handler
+   jmp int_exit
 
 %endmacro
 
 ; insert idt code after this line
-idt:
-   dd intr0x00entry
-   dd intr0x01entry
-   dd intr0x02entry
-   dd intr0x03entry
-   dd intr0x04entry
-   dd intr0x05entry
-   dd intr0x06entry
-   dd intr0x07entry
-   dd intr0x08entry
-   dd intr0x09entry
-   dd intr0x0aentry
-   dd intr0x0bentry
-   dd intr0x0centry
-   dd intr0x0dentry
-   dd intr0x0eentry
-   dd intr0x0fentry
-   dd intr0x10entry
-   dd intr0x11entry
-   dd intr0x12entry
-   dd intr0x13entry
-   dd intr0x14entry
-   dd intr0x15entry
-   dd intr0x16entry
-   dd intr0x17entry
-   dd intr0x18entry
-   dd intr0x19entry
-   dd intr0x1aentry
-   dd intr0x1bentry
-   dd intr0x1centry
-   dd intr0x1dentry
-   dd intr0x1eentry
-   dd intr0x1fentry
-   dd intr0x20entry
+int_entries:
+   dd int_0x00_entry
+   dd int_0x01_entry
+   dd int_0x02_entry
+   dd int_0x03_entry
+   dd int_0x04_entry
+   dd int_0x05_entry
+   dd int_0x06_entry
+   dd int_0x07_entry
+   dd int_0x08_entry
+   dd int_0x09_entry
+   dd int_0x0a_entry
+   dd int_0x0b_entry
+   dd int_0x0c_entry
+   dd int_0x0d_entry
+   dd int_0x0e_entry
+   dd int_0x0f_entry
+   dd int_0x10_entry
+   dd int_0x11_entry
+   dd int_0x12_entry
+   dd int_0x13_entry
+   dd int_0x14_entry
+   dd int_0x15_entry
+   dd int_0x16_entry
+   dd int_0x17_entry
+   dd int_0x18_entry
+   dd int_0x19_entry
+   dd int_0x1a_entry
+   dd int_0x1b_entry
+   dd int_0x1c_entry
+   dd int_0x1d_entry
+   dd int_0x1e_entry
+   dd int_0x1f_entry
+   dd int_0x20_entry
 
-idt_rust:
-   times 33 dd 0
+int_rust:
+   dd 0
 
 VECTOR 0x00, ZERO
 VECTOR 0x01, ZERO
@@ -268,7 +287,7 @@ VECTOR 0x1f, ZERO
 VECTOR 0x20, ZERO
 ;;; IDT_CODE ;;;
 
-intr_exit:
+int_exit:
 ; 以下是恢复上下文环境
    add esp, 4			   ; 跳过中断号
    popad

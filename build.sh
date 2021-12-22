@@ -1,6 +1,8 @@
 #!/usr/bin/env zsh
 set -e
 
+mkdir -p build
+
 # replace $2 line of file $1 with $3
 rep_line() {
     # replace space with #

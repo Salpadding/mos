@@ -39,6 +39,12 @@ asm_api:
     ; setup page
     cmp eax, 4
     jz .set_page
+    cmp eax, 5
+    jz .int_entries
+    cmp eax, 6
+    jz .int_rust
+    cmp eax, 7
+    jz .div
     mov eax, 0
     ret
 .echo:
@@ -72,8 +78,22 @@ asm_api:
 
    call SELECTOR_CODE:KERNEL_ENTRY
 .lidt:
-    mov eax, [esp + 8]
+    mov eax, [asm_buf + 4]
+    lidt [eax]
     ret
+.int_entries:
+    mov dword [asm_buf], int_entries
+    ret
+.int_rust:
+    mov dword [asm_buf], int_rust
+    ret
+.div:
+    mov edx, 0
+    mov eax, [asm_buf + 4]
+    div dword [asm_buf + 8]
+    mov [asm_buf], eax
+    ret
+
 
 kernel_int_cb:
     dw 0
@@ -166,14 +186,12 @@ p_mode_start:
     call SELECTOR_CODE:KERNEL_ENTRY
 
 ; align to 2k
-times 2*1024 - ($-$$) db 0
-
 
 %define ERROR_CODE nop		 ; 若在相关的异常中cpu已经自动压入了错误码,为保持栈中格式统一,这里不做操作.
 %define ZERO push 0		 ; 若在相关的异常中cpu没有压入错误码,为了统一栈中格式,就手工压入一个0
 
 %macro VECTOR 2
-intr%1entry:		 ; 每个中断处理程序都要压入中断向量号,所以一个中断类型一个中断处理程序，自己知道自己的中断向量号是多少
+int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一个中断类型一个中断处理程序，自己知道自己的中断向量号是多少
 
    %2				 ; 中断若有错误码会压在eip后面
 ; 以下是保存上下文环境
@@ -189,15 +207,16 @@ intr%1entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
    out 0x20,al                   ; 向主片发送
 
    push %1			 ;           ; push vector
-   call [idt_rust + %1 * 4]       ; call rust interrupt handler
-   jmp intr_exit
+   mov  dword [asm_buf], %1
+   call [int_rust]       ; call rust interrupt handler
+   jmp int_exit
 
 %endmacro
 
 ; insert idt code after this line
 ;;; IDT_CODE ;;;
 
-intr_exit:
+int_exit:
 ; 以下是恢复上下文环境
    add esp, 4			   ; 跳过中断号
    popad

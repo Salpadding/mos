@@ -64,7 +64,6 @@ brew install nasm
 2. generate hard disk
 
 ```sh
-mkdir build
 bximage
 # 1
 # hd
@@ -72,6 +71,7 @@ bximage
 # 512
 # 60
 # build/hd60M.img
+mkdir build
 ```
 
 3. build bootloader and kernel

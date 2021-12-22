@@ -13,7 +13,7 @@ pub fn asm_buf() -> AsmBuf {
     unsafe {
         core::slice::from_raw_parts_mut(
             ASM_BUF_OFF as *mut _,
-            ASM_BUF_LEN
+            ASM_BUF_LEN,
         )
     }
 }
@@ -30,6 +30,10 @@ mod methods {
     pub const LIDT: u32 = 2;
     pub const PAGE_ENABLED: u32 = 3;
     pub const PAGE_SETUP: u32 = 4;
+    pub const INT_ENTRIES_OFF: u32 = 5;
+    pub const INT_RUST_OFF: u32 = 6;
+    // division by assembly
+    pub const DIV: u32 = 7;
 }
 
 fn api_call(method: u32, args: &[u32]) -> u32 {
@@ -50,9 +54,8 @@ pub fn gdt() -> &'static mut GdtPtr {
     unsafe { &mut *(p as *mut _) }
 }
 
-pub fn lidt(addr: usize)  {
-    let api = asm_api();
-    // api(LIDT, addr as u32);
+pub fn lidt(addr: usize) {
+    api_call(methods::LIDT, &[addr as u32]);
 }
 
 pub fn page_enabled() -> bool {
@@ -61,8 +64,19 @@ pub fn page_enabled() -> bool {
 
 pub fn page_setup(stack_high: usize) -> ! {
     api_call(methods::PAGE_SETUP, &[stack_high as u32]);
-    loop {
-    }
+    loop {}
+}
+
+pub fn int_entries() -> usize {
+   api_call(methods::INT_ENTRIES_OFF, &[]) as usize
+}
+
+pub fn int_rust() -> usize {
+    api_call(methods::INT_RUST_OFF, &[]) as usize
+}
+
+pub fn div(x: u32, y: u32) -> u32 {
+    api_call(methods::DIV, &[x, y])
 }
 
 #[repr(packed)]

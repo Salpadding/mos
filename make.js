@@ -134,7 +134,7 @@ function preprocess() {
 
 
     const vector_cnt = 33
-    const error_vectors = [8, 0x0a, 0x0b, 0x0d, 0x0e, 0x11, 0x18, 0x1a, 0x1b, 0x1d, 0x1e]
+    const error_vectors = [0x08, 0x0a, 0x0b, 0x0d, 0x0e, 0x11, 0x18, 0x1a, 0x1b, 0x1d, 0x1e]
 
 
     const file = fs.readFileSync(path.join(__dirname, 'asm/loader.S'), 'utf8')
@@ -151,13 +151,13 @@ function preprocess() {
 
 
     // vector codes
-    let idt = '\nidt:\n'
+    let idt = '\nint_entries:\n'
 
     for(let i = 0; i < vector_cnt; i++) {
-        idt += `   dd intr${id(i)}entry\n`
+        idt += `   dd int_${id(i)}_entry\n`
     }
 
-    idt += '\nidt_rust:\n   times 33 dd 0\n'
+    idt += '\nint_rust:\n   dd 0\n'
 
 
     let vcs = '\n'

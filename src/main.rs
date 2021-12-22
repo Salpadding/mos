@@ -1,3 +1,4 @@
+// allow unchecked math
 // disable rust standard library
 #![no_std]
 // disables Rust runtime init,
@@ -7,6 +8,7 @@
 #![feature(lang_items)]
 
 use core::panic::PanicInfo;
+
 use crate::asm::{echo, gdt};
 use crate::vga::{cls, put_char, puts};
 
@@ -30,7 +32,11 @@ pub extern "C" fn _start() -> ! {
         let stack_high = page::init_page();
         asm::page_setup(stack_high)
     } else {
-        println!("page setup success");
+        idt::init_all();
+        let x = 20;
+        let y = 0;
+        let z = asm::div(x, y);
+        println!("{}/{} = {}", x, y, z);
         loop {}
     }
 }
