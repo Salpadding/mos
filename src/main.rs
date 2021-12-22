@@ -7,6 +7,7 @@
 #![feature(lang_items)]
 
 use core::panic::PanicInfo;
+use crate::asm::{echo, gdt};
 use crate::vga::{cls, put_char, puts};
 
 // see https://docs.rust-embedded.org/embedonomicon/smallest-no-std.html
@@ -27,10 +28,8 @@ mod page;
 pub extern "C" fn _start() -> ! {
     if !asm::page_enabled() {
         let stack_high = page::init_page();
-        println!("hello world1");
         asm::page_setup(stack_high)
     } else {
-        println!("hello world2");
         loop {}
     }
 }

@@ -1,5 +1,7 @@
 # MOS
 
+A small kernel written in rust. 
+
 ## Memory allocation
 
 1. 0-0x4ff              reserved

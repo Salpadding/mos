@@ -1,10 +1,22 @@
 use crate::asm::methods::LIDT;
 use crate::println;
 
-pub const ASM_API_OFF: usize = 0x800 + 40;
+// loader off + pad + gdt
+pub const ASM_BUF_OFF: usize = 0x800 + 8 + 32;
+pub const ASM_BUF_LEN: usize = 4;
+pub const ASM_API_OFF: usize = ASM_BUF_OFF + ASM_BUF_LEN * 4;
 
-type AsmApi = extern "C" fn(method: u32, p0: u32) -> u32;
+type AsmApi = extern "C" fn();
+type AsmBuf = &'static mut [u32];
 
+pub fn asm_buf() -> AsmBuf {
+    unsafe {
+        core::slice::from_raw_parts_mut(
+            ASM_BUF_OFF as *mut _,
+            ASM_BUF_LEN
+        )
+    }
+}
 
 pub fn asm_api() -> AsmApi {
     unsafe {
@@ -13,31 +25,42 @@ pub fn asm_api() -> AsmApi {
 }
 
 mod methods {
+    pub const ECHO: u32 = 0;
     pub const GDT_PTR: u32 = 1;
     pub const LIDT: u32 = 2;
     pub const PAGE_ENABLED: u32 = 3;
     pub const PAGE_SETUP: u32 = 4;
 }
 
-pub fn gdt() -> &'static mut GdtPtr {
+fn api_call(method: u32, args: &[u32]) -> u32 {
+    let buf = asm_buf();
+    buf[0] = method;
+    buf[1..(1 + args.len())].copy_from_slice(args);
     let api = asm_api();
-    let x = api(methods::GDT_PTR, 0) as usize;
-    unsafe { &mut *(x as *mut _) }
+    api();
+    buf[0]
+}
+
+pub fn echo(x: u32) -> u32 {
+    api_call(methods::ECHO, &[x])
+}
+
+pub fn gdt() -> &'static mut GdtPtr {
+    let p = api_call(methods::GDT_PTR, &[]);
+    unsafe { &mut *(p as *mut _) }
 }
 
 pub fn lidt(addr: usize)  {
     let api = asm_api();
-    api(LIDT, addr as u32);
+    // api(LIDT, addr as u32);
 }
 
 pub fn page_enabled() -> bool {
-    let api = asm_api();
-    api(methods::PAGE_ENABLED, 0) != 0
+    api_call(methods::PAGE_ENABLED, &[]) != 0
 }
 
 pub fn page_setup(stack_high: usize) -> ! {
-    let api = asm_api();
-    api(methods::PAGE_SETUP, stack_high as u32);
+    api_call(methods::PAGE_SETUP, &[stack_high as u32]);
     loop {
     }
 }

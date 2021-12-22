@@ -7,38 +7,54 @@ jmp start
 
 times 8 - ($ - $$) db 0
 
+[bits 32]
 gdt_base:
-    dd 0
-    dd 0
+    dq 0
     dq 0
     dq 0
     dq 0
 gdt_end:
 
+; 4 argument for asm_api call, 16 byte
+asm_buf:
+    dd 0
+    dd 0
+    dd 0
+    dd 0
+
 ; loader_api, 1 = gdt_ptr, 2 = lidt, 3 = page enabled?
-[bits 32]
-loader_api:
+asm_api:
+    mov eax, [asm_buf]
+    cmp eax, 0
+    jz .echo
     ; gdt ptr
-    cmp dword [esp + 4], 1
+    cmp eax, 1
     jz .gdt
     ; load interrupt descriptor table
-    cmp dword [esp + 4], 2
+    cmp eax, 2
     jz .lidt
     ; if page enabled
-    cmp dword [esp + 4], 3
-    jz .page
+    cmp eax, 3
+    jz .page_enabled
     ; setup page
-    cmp dword [esp + 4], 4
+    cmp eax, 4
     jz .set_page
-.gdt:
-    mov eax, gdt_ptr
+    mov eax, 0
     ret
-.page:
+.echo:
+    mov eax, [asm_buf + 4]
+    mov [asm_buf], eax
+    ret
+.gdt:
+    mov dword [asm_buf], gdt_ptr
+    ret
+.page_enabled:
     mov eax, [page_enabled]
+    mov [asm_buf], eax
     ret
 .set_page:
     ; the new stack base
-    mov ecx, [esp + 8]
+    mov ecx, [asm_buf + 4]
     ; enable paging
     ; call setup_page
     mov  eax, PDE_START
@@ -148,6 +164,7 @@ p_mode_start:
     call read_n_sec
 
     call SELECTOR_CODE:KERNEL_ENTRY
+
 
 ; align to 4k
 times 16*1024 - ($-$$) db 0
