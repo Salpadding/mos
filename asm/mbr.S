@@ -14,6 +14,7 @@ mov bp, sp
 mov bx, LOADER_START_SECTOR
 mov cx, LOADER_SECTORS
 mov dx, LOADER_BASE_ADDR
+
 call read_n_sec
 
 jmp LOADER_BASE_ADDR

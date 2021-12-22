@@ -1,8 +1,8 @@
 MBR_BASE_ADDR equ 0x7c00
 LOADER_BASE_ADDR equ 0x800
 LOADER_START_SECTOR equ 1
-LOADER_SECTORS equ 32
-KERNEL_SECTORS equ 69
+LOADER_SECTORS equ 8
+KERNEL_SECTORS equ 68
 KERNEL_ENTRY equ 0x200000
 
 ; read_n_sec(start_sec, n, dst)
@@ -13,7 +13,7 @@ KERNEL_ENTRY equ 0x200000
 ; mc_read_n_sec edx, esi, ebx
 %macro mc_read_n_sec 3
 read_n_sec:
-    ; backup dx    
+    ; backup dx/edx into si/esi
     mov %2, %1
     ; backup sectors
     mov di, cx

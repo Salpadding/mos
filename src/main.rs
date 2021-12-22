@@ -33,10 +33,7 @@ pub extern "C" fn _start() -> ! {
         asm::page_setup(stack_high)
     } else {
         idt::init_all();
-        let x = 20;
-        let y = 0;
-        let z = asm::div(x, y);
-        println!("{}/{} = {}", x, y, z);
+        println!("hello world");
         loop {}
     }
 }

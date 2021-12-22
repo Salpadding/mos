@@ -4,7 +4,6 @@ SECTION LOADER vstart=LOADER_BASE_ADDR
 PDE_START equ 0x100000
 
 jmp start
-
 times 8 - ($ - $$) db 0
 
 [bits 32]
@@ -228,4 +227,5 @@ int_exit:
    iretd
 
 ; align to 4k
-times 16*1024 - ($-$$) db 0
+; nasm will do some magic optimize if not reserve padding
+times 4*1024 - ($ - $$) db 0 

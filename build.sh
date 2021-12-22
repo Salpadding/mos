@@ -42,6 +42,10 @@ popd>/dev/null
 LOADER_SECTORS=`sectors build/loader.bin`
 rep_line asm/boot.inc 4 "LOADER_SECTORS equ $LOADER_SECTORS"
 
+pushd asm>/dev/null
+nasm -o ../build/loader.bin loader.gen.S
+popd>/dev/null
+
 SRC=loader node make.js
 
 pushd asm>/dev/null
