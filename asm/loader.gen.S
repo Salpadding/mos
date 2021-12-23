@@ -44,6 +44,16 @@ asm_api:
     jz .int_rust
     cmp eax, 7
     jz .div
+    cmp eax, 8
+    jz .caller
+    cmp eax, 9
+    jz .outb
+    cmp eax, 10
+    jz .outsw
+    cmp eax, 11
+    jz .inb
+    cmp eax, 12
+    jz .insw
     mov eax, 0
     ret
 .echo:
@@ -91,6 +101,35 @@ asm_api:
     mov eax, [asm_buf + 4]
     div dword [asm_buf + 8]
     mov [asm_buf], eax
+    ret
+.caller:
+    mov eax, [esp]
+    mov [asm_buf], eax
+    ret
+.outb:
+    mov edx, [asm_buf + 4]
+    mov eax, [asm_buf + 8]
+    out dx, al
+    ret
+.outsw:
+    cld
+    mov edx, [asm_buf + 4]
+    mov ecx, [asm_buf + 12]
+    mov esi, [asm_buf + 8]
+    rep outsw
+    ret
+.inb:
+    mov edx, [asm_buf + 4]
+    mov eax, 0
+    in  al, dx
+    mov [asm_buf], eax
+    ret
+.insw:
+    cld
+    mov edx, [asm_buf + 4]
+    mov ecx, [asm_buf + 12]
+    mov esi, [asm_buf + 8]
+    rep insw
     ret
 
 
@@ -208,6 +247,7 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
    push %1			 ;           ; push vector
    mov  dword [asm_buf], %1
    call [int_rust]       ; call rust interrupt handler
+
    jmp int_exit
 
 %endmacro

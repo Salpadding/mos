@@ -10,18 +10,11 @@ type AsmApi = extern "C" fn();
 type AsmBuf = &'static mut [u32];
 
 pub fn asm_buf() -> AsmBuf {
-    unsafe {
-        core::slice::from_raw_parts_mut(
-            ASM_BUF_OFF as *mut _,
-            ASM_BUF_LEN,
-        )
-    }
+    unsafe { core::slice::from_raw_parts_mut(ASM_BUF_OFF as *mut _, ASM_BUF_LEN) }
 }
 
 pub fn asm_api() -> AsmApi {
-    unsafe {
-        core::mem::transmute(ASM_API_OFF)
-    }
+    unsafe { core::mem::transmute(ASM_API_OFF) }
 }
 
 mod methods {
@@ -34,6 +27,11 @@ mod methods {
     pub const INT_RUST_OFF: u32 = 6;
     // division by assembly
     pub const DIV: u32 = 7;
+    pub const CALLER: u32 = 8;
+    pub const OUT_B: u32 = 9;
+    pub const OUT_SW: u32 = 10;
+    pub const IN_B: u32 = 11;
+    pub const IN_SW: u32 = 12;
 }
 
 fn api_call(method: u32, args: &[u32]) -> u32 {
@@ -43,6 +41,24 @@ fn api_call(method: u32, args: &[u32]) -> u32 {
     let api = asm_api();
     api();
     buf[0]
+}
+
+pub fn out_b(port: u16, b: u8) {
+    api_call(methods::OUT_B, &[port as u32, b as u32]);
+}
+
+pub fn in_b(port: u16) -> u8 {
+    api_call(methods::IN_B, &[port as u32]) as u8
+}
+
+pub fn out_sw(port: u16, buf: &[u16]) {
+    let src = buf.as_ptr() as usize;
+    api_call(methods::OUT_SW, &[port as u32, src as u32, buf.len() as u32]);
+}
+
+pub fn in_sw(port: u16, buf: &mut [u16]) {
+    let src = buf.as_ptr() as usize;
+    api_call(methods::IN_SW, &[port as u32, src as u32, buf.len() as u32]);
 }
 
 pub fn echo(x: u32) -> u32 {
@@ -68,7 +84,7 @@ pub fn page_setup(stack_high: usize) -> ! {
 }
 
 pub fn int_entries() -> usize {
-   api_call(methods::INT_ENTRIES_OFF, &[]) as usize
+    api_call(methods::INT_ENTRIES_OFF, &[]) as usize
 }
 
 pub fn int_rust() -> usize {
@@ -77,6 +93,10 @@ pub fn int_rust() -> usize {
 
 pub fn div(x: u32, y: u32) -> u32 {
     api_call(methods::DIV, &[x, y])
+}
+
+pub fn caller() -> u32 {
+    api_call(methods::CALLER, &[])
 }
 
 #[repr(packed)]
@@ -89,12 +109,6 @@ impl GdtPtr {
     pub fn gdt(&mut self) -> &'static mut [u64] {
         let sz = (self.gdt_bound + 1) as usize;
         let n = sz / 8;
-        unsafe {
-            core::slice::from_raw_parts_mut(
-                self.gdt_base as *mut _,
-                n,
-            )
-        }
+        unsafe { core::slice::from_raw_parts_mut(self.gdt_base as *mut _, n) }
     }
 }
-

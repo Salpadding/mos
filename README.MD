@@ -70,7 +70,7 @@ bximage
 # flat
 # 512
 # 60
-# build/hd60M.img
+# build/disk.img
 mkdir build
 ```
 

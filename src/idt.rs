@@ -15,7 +15,11 @@ static mut IDT: [u64; ENTRY_SIZE] = [0; ENTRY_SIZE];
 pub extern "C" fn int_entry() {
     let vec = crate::asm::asm_buf()[0];
 
-    println!("vector = {}", vec);
+
+    if vec == 0 {
+        println!("divided by zero!");
+        loop {}
+    }
 }
 
 fn idt() -> &'static mut [GateBits] {
@@ -59,10 +63,38 @@ pub fn init_all() {
     // 3. init descriptors
     init_idt();
 
-    // 4. call lidt
+    // 4. init pic
+    init_pic();
+
+    // 5. call lidt
     unsafe {
         crate::asm::lidt((&IDT_PTR) as *const _ as usize)
     }
+
+}
+
+const PIC_M_CTRL: u16 = 0x20;
+const PIC_M_DATA: u16 = 0x21;
+const PIC_S_CTRL: u16 = 0xa0;
+const PIC_S_DATA: u16 = 0xa1;
+
+fn init_pic() {
+    use crate::asm::out_b;
+
+    out_b(PIC_M_CTRL, 0x11);
+    out_b(PIC_M_DATA, 0x20);
+    out_b(PIC_M_DATA, 0x04);
+    out_b(PIC_M_DATA, 0x01);
+
+
+    out_b(PIC_S_CTRL, 0x11);
+    out_b(PIC_S_DATA, 0x28);
+    out_b(PIC_S_DATA, 0x02);
+    out_b(PIC_S_DATA, 0x01);
+
+    out_b(PIC_M_DATA, 0xfe);
+    out_b(PIC_S_DATA, 0xff);
+
 }
 
 fn init_idt() {

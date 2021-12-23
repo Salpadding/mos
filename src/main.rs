@@ -33,6 +33,9 @@ pub extern "C" fn _start() -> ! {
         asm::page_setup(stack_high)
     } else {
         idt::init_all();
+        let caller = asm::caller();
+        println!("caller = 0x{:X}", caller);
+        asm::div(1, 0);
         println!("hello world");
         loop {}
     }

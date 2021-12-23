@@ -52,6 +52,6 @@ pushd asm>/dev/null
 nasm -o ../build/mbr.bin mbr.S
 popd>/dev/null
 
-dd if=build/mbr.bin of=build/hd60M.img bs=512 count=1 conv=notrunc
-dd if=build/loader.bin of=build/hd60M.img bs=512 count=$LOADER_SECTORS seek=1 conv=notrunc
-dd if=build/kernel.bin of=build/hd60M.img bs=512 count=$KERNEL_SECTORS seek=$((1+$LOADER_SECTORS)) conv=notrunc
+dd if=build/mbr.bin of=build/disk.img bs=512 count=1 conv=notrunc
+dd if=build/loader.bin of=build/disk.img bs=512 count=$LOADER_SECTORS seek=1 conv=notrunc
+dd if=build/kernel.bin of=build/disk.img bs=512 count=$KERNEL_SECTORS seek=$((1+$LOADER_SECTORS)) conv=notrunc
