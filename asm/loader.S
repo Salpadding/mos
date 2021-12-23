@@ -54,6 +54,8 @@ asm_api:
     jz .inb
     cmp eax, 12
     jz .insw
+    cmp eax, 13
+    jz .sti
     mov eax, 0
     ret
 .echo:
@@ -128,8 +130,11 @@ asm_api:
     cld
     mov edx, [asm_buf + 4]
     mov ecx, [asm_buf + 12]
-    mov esi, [asm_buf + 8]
+    mov edi, [asm_buf + 8]
     rep insw
+    ret
+.sti:
+    sti
     ret
 
 

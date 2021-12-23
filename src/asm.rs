@@ -32,6 +32,7 @@ mod methods {
     pub const OUT_SW: u32 = 10;
     pub const IN_B: u32 = 11;
     pub const IN_SW: u32 = 12;
+    pub const STI: u32 = 13;
 }
 
 fn api_call(method: u32, args: &[u32]) -> u32 {
@@ -97,6 +98,10 @@ pub fn div(x: u32, y: u32) -> u32 {
 
 pub fn caller() -> u32 {
     api_call(methods::CALLER, &[])
+}
+
+pub fn sti() {
+    api_call(methods::STI, &[]);
 }
 
 #[repr(packed)]
