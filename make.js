@@ -88,9 +88,10 @@ function gd({limit, base, rw, executable, system, mode, pri, scale_4k }) {
 }
 
 function kernel() {
+    process.chdir(path.join(__dirname, 'kernel'))
     cp.execSync('cargo build --release')
-
-    const bin = fs.readFileSync(path.join(__dirname, 'target/x86-unknown-bare_metal/release/mos'))
+    process.chdir(__dirname)
+    const bin = fs.readFileSync(path.join(__dirname, 'target/x86-unknown-bare_metal/release/kernel'))
     const newBin = Buffer.alloc(bin.length)
 
 
