@@ -33,8 +33,12 @@ pub extern "C" fn _start() -> ! {
         println!("hello world");
         println!("memory size = {}M", asm::memory_size() / 1024 / 1024);
         crate::mem::init();
-        println!("bit map size = {}", crate::mem::bit_map().len());
-        println!("bitmap[0] = {:X}", crate::mem::bit_map()[0]);
+
+        let k = crate::mem::kernel_pool();
+        let u = crate::mem::user_pool();
+
+        println!("kernel: pool size = {}M, p_start = {}M bitmap len = {}", k.pool_sz / 1024 / 1024, k.p_start / 1024 / 1024, k.bitmap.len());
+        println!("user  : pool size = {}M, p_start = {}M bitmap len = {}", u.pool_sz / 1024 / 1024, u.p_start / 1024 / 1024, u.bitmap.len());
         loop {}
     }
 }
