@@ -14,14 +14,6 @@ const BIT_MAP_SIZE: usize = (4 * 1024 * 1024 * 1024 / PAGE_SIZE as u64 / 8) as u
 static mut BIT_MAP_DATA: [u8; BIT_MAP_SIZE] = [0u8; BIT_MAP_SIZE];
 static mut PAGE_POOL_ST: [u8; PAGE_POOL_ST_SZ * 2] = [0u8; PAGE_POOL_ST_SZ * 2];
 
-/// page bitmap for kernel space
-static mut KERNEL_BIT_MAP: &'static mut [u8] = unsafe { &mut BIT_MAP_DATA };
-static mut KERNEL_P_START: usize = 0;
-
-/// page bitmap for user space
-static mut USER_BIT_MAP: &'static mut [u8] = unsafe { &mut BIT_MAP_DATA };
-static mut USER_P_START: usize = 0;
-
 pub struct PagePool {
     pub bitmap: &'static mut [u8],
     pub pool_sz: usize,

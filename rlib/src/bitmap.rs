@@ -83,12 +83,12 @@ impl Bitmap for [u8] {
                 self[i] = 0xff;
             }
 
-            self[x - 1] = self[x - 1] |  (0xff << (start_bit % 8));
+            self[x - 1] = self[x - 1] | (0xff << (start_bit % 8));
 
             if end % 8 > 0 {
-                self[y] = self[y] |  (0xff >> (8 - end % 8));
+                self[y] = self[y] | (0xff >> (8 - end % 8));
             }
-            return
+            return;
         }
 
         if y < x {
@@ -127,9 +127,9 @@ mod test {
         let mut y = x.clone();
         let mut z = x.clone();
 
-        x.fill_n(13, 10);
-        y.fill_n(13, 11);
-        z.fill_n(13, 7);
+        x.fill_n(8, 10);
+        y.fill_n(8, 17);
+        z.fill_n(8, 8);
 
         for a in [x, y, z] {
             let s: Vec<_> = a.iter().map(|x| format!("{:08b}", x)).collect();
