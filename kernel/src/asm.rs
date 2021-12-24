@@ -33,6 +33,7 @@ mod methods {
     pub const IN_B: u32 = 11;
     pub const IN_SW: u32 = 12;
     pub const STI: u32 = 13;
+    pub const MEM_SZ: u32 = 14;
 }
 
 fn api_call(method: u32, args: &[u32]) -> u32 {
@@ -42,6 +43,10 @@ fn api_call(method: u32, args: &[u32]) -> u32 {
     let api = asm_api();
     api();
     buf[0]
+}
+
+pub fn memory_size() -> u32 {
+    api_call(methods::MEM_SZ, &[])
 }
 
 pub fn out_b(port: u16, b: u8) {

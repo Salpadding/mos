@@ -31,6 +31,10 @@ pub extern "C" fn _start() -> ! {
     } else {
         idt::init_all();
         println!("hello world");
+        println!("memory size = {}M", asm::memory_size() / 1024 / 1024);
+        crate::mem::init();
+        println!("bit map size = {}", crate::mem::bit_map().len());
+        println!("bitmap[0] = {:X}", crate::mem::bit_map()[0]);
         loop {}
     }
 }

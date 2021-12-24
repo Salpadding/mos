@@ -56,6 +56,8 @@ asm_api:
     jz .insw
     cmp eax, 13
     jz .sti
+    cmp eax, 14
+    jz .mem_sz
     mov eax, 0
     ret
 .echo:
@@ -136,16 +138,15 @@ asm_api:
 .sti:
     sti
     ret
-
-
-kernel_int_cb:
-    dw 0
-
-; interrupt handle entry
-int_handle:
-    iret
+.mem_sz:
+    mov eax, [mem_sz],
+    mov [asm_buf], eax
+    ret
 
 page_enabled:
+    dd 0
+
+mem_sz:
     dd 0
 
 mc_read_n_sec edx, esi, ebx
@@ -159,40 +160,47 @@ gdt_ptr:
     dw gdt_end - gdt_base - 1
     dd gdt_base
 
-mem_size:
+get_mem_size:
     ; get memory size
     mov ax, 0xe801
     int 0x15
 
+    push bp
     ; ax * 1024 + bx * 1024 * 64 + 1024 * 1024
 
-    ; esp + 8
+    ; bp + 4
     push ebx;
-    ; esp + 4
+    ; bp
     push eax
 
+    mov  bp, sp
+
     ; ax * 1024
-    mov eax, [esp]
+    mov eax, [bp]
     mov ebx, 1024
     mul ebx
-    mov [esp], eax
+    mov [bp], eax
 
-    mov eax, [esp + 4]
+    mov eax, [bp + 4]
     mul ebx
     mov ebx, 64
     mul ebx
-    mov [esp + 4], eax
+    mov [bp + 4], eax
 
     mov eax, 1024
     mul eax
-    add eax, [esp]
-    add eax, [esp + 4]
+    add eax, [bp]
+    add eax, [bp + 4]
 
-    add esp, 8
+    add sp, 8
+    pop bp
     ret
 
 ; jump into protection mode
 start:
+    call get_mem_size
+    mov  [mem_sz], eax
+
     ; a20
     in al, 0x92
     or al, 0x02
@@ -209,6 +217,7 @@ start:
     mov eax, cr0
     or eax, 1
     mov cr0, eax
+
 
     ; set cs = gdt[1], ip = p_mode_start
     jmp SELECTOR_CODE:p_mode_start
