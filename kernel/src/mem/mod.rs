@@ -1,14 +1,14 @@
+pub use {alloc::pg_alloc, alloc::Pool, page::init_page, page::page_enabled};
 use rlib::bitmap::Bitmap;
 
 use crate::{asm, println};
 use crate::mem::page::{PDE_START, PT_SIZE, RESERVED_MEM};
 
-pub use {page::init_page, alloc::m_alloc, alloc::Pool};
 mod page;
 mod alloc;
 
 const KERNEL_MEM: usize = 2 << 20;
-const PAGE_SIZE: usize = 4 * 1024;
+pub const PAGE_SIZE: usize = 4 * 1024;
 const BUF_ST_SIZE: usize = 128;
 
 /// 128kb bit map
@@ -60,10 +60,10 @@ fn v_pool() -> &'static mut VPool {
 
 fn bit_map() -> &'static mut [u8] {
     unsafe {
-       core::slice::from_raw_parts_mut(
-                BIT_MAP.as_ptr() as *mut _,
-           BIT_MAP_SIZE
-       )
+        core::slice::from_raw_parts_mut(
+            BIT_MAP.as_ptr() as *mut _,
+            BIT_MAP_SIZE,
+        )
     }
 }
 
@@ -87,12 +87,12 @@ pub fn debug() {
 pub fn init() {
     // initialize kernel area and bit map
     fill_zero(RESERVED_MEM, KERNEL_MEM);
-    fill_zero(unsafe { bit_map().as_ptr() as usize } , BIT_MAP_SIZE);
+    fill_zero(unsafe { bit_map().as_ptr() as usize }, BIT_MAP_SIZE);
 
     let total_mem = asm::memory_size() / PAGE_SIZE as u32 * PAGE_SIZE as u32;
     let user_mem = total_mem as usize - RESERVED_MEM - KERNEL_MEM;
     let kernel_pages = KERNEL_MEM / PAGE_SIZE;
-    let user_pages =  user_mem / PAGE_SIZE;
+    let user_pages = user_mem / PAGE_SIZE;
 
     let k = kernel_pool();
     let u = user_pool();

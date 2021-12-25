@@ -4,7 +4,7 @@ const ENTRY_SIZE: usize = 33;
 const SELECTOR_CODE: u16 = 1 << 3;
 
 // 32bit interrupt gate
-const IDT_DESC_ATTR_DPL0: u8 = (1 << 7) | 0xe;
+const IDT_DESC_ATTR_DPL0: u8 = 1 << 7 | 0xe;
 
 static mut IDT_PTR: IdtPtr = IdtPtr { size: 0, off: 0 };
 static mut IDT: [u64; ENTRY_SIZE] = [0; ENTRY_SIZE];
@@ -144,7 +144,7 @@ const COUNTER0_VALUE: u32 = INPUT_FREQUENCY / IRQ0_FREQUENCY;
 fn init_8253() {
     asm::out_b(PIT_CONTROL_PORT, READ_WRITE_LATCH << 4 | COUNTER_MODE << 1);
     asm::out_b(COUNTER0_PORT, (COUNTER0_VALUE & 0xff) as u8);
-    asm::out_b(COUNTER0_PORT, ((COUNTER0_VALUE >> 8) & 0xff) as u8);
+    asm::out_b(COUNTER0_PORT, (COUNTER0_VALUE >> 8 & 0xff) as u8);
 }
 
 #[repr(packed)]

@@ -5,6 +5,7 @@ use crate::println;
 pub const ASM_BUF_OFF: usize = 0x800 + 8 + 32;
 pub const ASM_BUF_LEN: usize = 4;
 pub const ASM_API_OFF: usize = ASM_BUF_OFF + ASM_BUF_LEN * 4;
+pub const KERNEL_ENTRY: usize = 1 << 20;
 
 type AsmApi = extern "C" fn();
 type AsmBuf = &'static mut [u32];
@@ -50,11 +51,18 @@ pub fn memory_size() -> u32 {
 }
 
 pub fn out_b(port: u16, b: u8) {
-    api_call(methods::OUT_B, &[port as u32, b as u32]);
+    unsafe {
+        asm!("out dx, al", in("dx") port, in("al") b)
+    };
 }
 
 pub fn in_b(port: u16) -> u8 {
-    api_call(methods::IN_B, &[port as u32]) as u8
+    let r: u8;
+    unsafe {
+        asm!("in al, dx", out("al") r, in("dx") port)
+    };
+    r
+    // api_call(methods::IN_B, &[port as u32]) as u8
 }
 
 pub fn out_sw(port: u16, buf: &[u16]) {
@@ -85,8 +93,21 @@ pub fn page_enabled() -> bool {
 }
 
 pub fn page_setup(pde_start: usize, stack_high: usize) -> ! {
-    api_call(methods::PAGE_SETUP, &[pde_start as u32, stack_high as u32]);
-    loop {}
+    unsafe {
+        let mut cr0: u32;
+        asm!("mov {}, cr0", out(reg) cr0);
+        cr0 |= 1 << 31;
+        asm!(
+        "mov cr3, {0}",
+        "mov ebp, {1}",
+        "mov esp, ebp",
+        in(reg) pde_start,
+        in(reg) stack_high,
+        );
+        asm!("mov cr0, {}", in(reg) cr0);
+    }
+    let p: fn() -> ! = unsafe { core::mem::transmute(KERNEL_ENTRY) };
+    p()
 }
 
 pub fn int_entries() -> usize {
@@ -106,7 +127,7 @@ pub fn caller() -> u32 {
 }
 
 pub fn sti() {
-    api_call(methods::STI, &[]);
+    unsafe { asm!("sti"); }
 }
 
 #[repr(packed)]

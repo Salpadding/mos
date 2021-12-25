@@ -1,6 +1,6 @@
 use crate::err::SE;
+use crate::mem::{fill_zero, KERNEL_MEM, kernel_pool, PAGE_SIZE};
 use crate::mem::alloc::PAlloc;
-use crate::mem::{kernel_pool, PAGE_SIZE, fill_zero, KERNEL_MEM};
 use crate::println;
 
 pub const PE_SIZE: usize = 4;
@@ -80,7 +80,7 @@ pub fn map_page(v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Res
 
     if trace {
         println!("map 0x{:08X} to 0x{:08X}", v, p);
-        println!("pd {} exists = {}", pde_i , pd[pde_i].exists());
+        println!("pd {} exists = {}", pde_i, pd[pde_i].exists());
     }
     if !pd[pde_i].exists() {
         let k = kernel_pool();
@@ -89,7 +89,7 @@ pub fn map_page(v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Res
             unsafe { PD_USED += 1; }
             // avoid overflow
             if off > BUF_UPPER_BOUND {
-                return Err("overflow")
+                return Err("overflow");
             }
             off
         };
@@ -112,14 +112,21 @@ pub fn map_page(v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Res
     Ok(())
 }
 
+static mut PAGE_ENABLED: bool = false;
+
+pub fn page_enabled() -> bool {
+    unsafe { PAGE_ENABLED }
+}
+
 pub fn init_page() -> ! {
+    unsafe { PAGE_ENABLED = true; };
     // init bitmaps
     crate::mem::init();
 
     fill_zero(PDE_START, PT_SIZE);
 
-    for i in 0..(RESERVED_MEM + KERNEL_MEM)/PAGE_SIZE {
-        map_page( i * PAGE_SIZE, i * PAGE_SIZE, 7, false, false).unwrap();
+    for i in 0..(RESERVED_MEM + KERNEL_MEM) / PAGE_SIZE {
+        map_page(i * PAGE_SIZE, i * PAGE_SIZE, 7, false, false).unwrap();
     }
     for i in 0..RESERVED_MEM / PAGE_SIZE {
         map_page(OS_MEM_OFF + i * PAGE_SIZE, i * PAGE_SIZE, 7, false, false).unwrap();

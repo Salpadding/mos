@@ -39,7 +39,7 @@ impl PAlloc for PagePool {
         if bit_i < 0 { return Err("memory overflow"); }
         self.bitmap.set(bit_i as usize, true);
 
-        let p = self.p_start + (bit_i as usize ) * PAGE_SIZE;
+        let p = self.p_start + (bit_i as usize) * PAGE_SIZE;
         if init {
             fill_zero(p, PAGE_SIZE);
         }
@@ -57,7 +57,7 @@ pub enum Pool {
 }
 
 
-pub fn m_alloc(p: Pool, pages: usize) -> Result<usize, SE> {
+pub fn pg_alloc(p: Pool, pages: usize) -> Result<usize, SE> {
     if p != Pool::KERNEL {
         return Err("not implemented");
     }

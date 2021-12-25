@@ -1,5 +1,5 @@
 // allow inline assembly
-#![feature(llvm_asm)]
+#![feature(asm)]
 // disable rust standard library
 #![no_std]
 // disables Rust runtime init,
@@ -9,6 +9,7 @@
 #![feature(lang_items)]
 
 use core::panic::PanicInfo;
+
 use crate::mem::Pool;
 
 // see https://docs.rust-embedded.org/embedonomicon/smallest-no-std.html
@@ -21,6 +22,7 @@ mod idt;
 mod asm;
 mod mem;
 mod err;
+mod thread;
 
 
 /// The name **must be** `_start`, otherwise the compiler doesn't output anything
@@ -28,14 +30,15 @@ mod err;
 #[no_mangle]
 #[link_section = ".entry"]
 pub extern "C" fn _start() -> ! {
-    println!("page enabled = {}", asm::page_enabled());
-    if !asm::page_enabled() {
+    use crate::mem::page_enabled;
+    println!("page enabled = {}", page_enabled());
+    if !page_enabled() {
         println!("setup page");
         crate::mem::init_page()
     } else {
         println!("setup page success");
         idt::init_all();
-        crate::mem::m_alloc(Pool::KERNEL, 2);
+        crate::mem::pg_alloc(Pool::KERNEL, 2);
         println!("hello world!");
         loop {}
     }

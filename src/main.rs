@@ -29,20 +29,20 @@ impl GD {
     fn new(limit: u32, base: u32, rw: bool, ex: bool, sys: bool, mode: u8, pri: u8, scale_4k: bool) -> Self {
         let mut acc: u8 = 1 << 7;
         if rw {
-            acc = acc | (1 << 1);
+            acc = acc | 1 << 1;
         }
         if ex {
-            acc = acc | (1 << 3);
+            acc = acc | 1 << 3;
         }
         if !sys {
-            acc = acc | (1 << 4);
+            acc = acc | 1 << 4;
         }
-        acc = acc | ((pri & 3) << 5);
+        acc = acc | (pri & 3) << 5;
 
         let mut fl = ((limit & 0xf0000) >> 16) as u8;
         fl = fl | mode;
         if scale_4k {
-            fl = fl | (1 << 7);
+            fl = fl | 1 << 7;
         }
 
         Self {
