@@ -1,3 +1,5 @@
+// allow inline assembly
+#![feature(llvm_asm)]
 // disable rust standard library
 #![no_std]
 // disables Rust runtime init,

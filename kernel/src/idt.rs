@@ -1,4 +1,4 @@
-use crate::{asm, println};
+use crate::{asm, panic, println};
 
 const ENTRY_SIZE: usize = 33;
 const SELECTOR_CODE: u16 = 1 << 3;
@@ -11,14 +11,34 @@ static mut IDT: [u64; ENTRY_SIZE] = [0; ENTRY_SIZE];
 
 static mut COUNTER: u32 = 0;
 
+pub static EXCEPTIONS: &[&'static str] = &[
+    "#DE Divide Error",
+    "#DB Debug Exception",
+    "NMI Interrupt",
+    "#BP Breakpoint Exception",
+    "#OF Overflow Exception",
+    "#BR BOUND Range Exceeded Exception",
+    "#UD Invalid Opcode Exception",
+    "#NM Device Not Available Exception",
+    "#DF Double Fault Exception",
+    "Coprocessor Segment Overrun",
+    "#TS Invalid TSS Exception",
+    "#NP Segment Not Present",
+    "#SS Stack Fault Exception",
+    "#GP General Protection Exception",
+    "#PF Page-Fault Exception",
+    "",
+    "#MF x87 FPU Floating-Point Error",
+    "#AC Alignment Check Exception",
+    "#MC Machine-Check Exception",
+    "#XF SIMD Floating-Point Exception",
+];
+
 extern "C" fn int_entry() {
     let vec = crate::asm::asm_buf()[0];
 
-
-    if vec == 0 {
-        // divide by zero is fatal
-        println!("Fatal: divided by zero!");
-        loop {}
+    if vec < 20 {
+        panic!("EXCEPTION: {}", EXCEPTIONS[vec as usize]);
     }
 }
 
