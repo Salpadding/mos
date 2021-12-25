@@ -8,23 +8,20 @@ A small kernel written in rust.
 2. 0x500-0x800         stack area for mbr and kernel loader
 3. 0x800-0x7bff        kernel loader, gdt, idt, asm api ( <29kb )
 4. 0x7c00-0x7dff        mbr
-5. 0x7e00-0x0x7ffff    unused 
+5. 0x7e00-0x0x7ffff    page directory (0x40000), reserved page mapping(0-8m->0-8m), bitmap for page pool
 6. 0x80000-0xfffff      reserved for hardware
 
 --- (1MB)
 
-5. 0x100000-0x1fffff    page directory entry and page descriptor entries (1MB)
+5. 0x100000-0x4fffff    kernel (4MB)
 
+--- (5MB)
 
---- (2MB)
-
-6. 0x200000-0x5ffff    kernal (4MB)
+6. 0x500000-0x5fffff    stack area for os  (1M)
 
 --- (6MB)
 
-
-8. 0x600000-0x7fffff    stack area for kernal (2M)
-
+7. 0x600000-0x800000    heap are   for  os (2M)
 
 --- (8MB)
 

@@ -2,8 +2,8 @@ MBR_BASE_ADDR equ 0x7c00
 LOADER_BASE_ADDR equ 0x800
 LOADER_START_SECTOR equ 1
 LOADER_SECTORS equ 8
-KERNEL_SECTORS equ 73
-KERNEL_ENTRY equ 0x200000
+KERNEL_SECTORS equ 85
+KERNEL_ENTRY equ 0x100000
 
 ; read_n_sec(start_sec, n, dst)
 ; read_n_sec(bx, cx, dx)

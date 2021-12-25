@@ -1,7 +1,6 @@
 [bits 16]
 %include "boot.inc"
 SECTION LOADER vstart=LOADER_BASE_ADDR
-PDE_START equ 0x100000
 
 jmp start
 times 8 - ($ - $$) db 0
@@ -73,10 +72,11 @@ asm_api:
     ret
 .set_page:
     ; the new stack base
-    mov ecx, [asm_buf + 4]
+    mov ecx, [asm_buf + 8]
     ; enable paging
     ; call setup_page
-    mov  eax, PDE_START
+
+    mov  eax, [asm_buf + 4]
     mov  cr3, eax
 
     mov eax, cr0
@@ -88,6 +88,7 @@ asm_api:
     mov eax, ecx
     mov esp, eax,
     mov ebp, esp
+
 
    call SELECTOR_CODE:KERNEL_ENTRY
 .lidt:

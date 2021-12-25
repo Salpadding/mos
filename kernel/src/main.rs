@@ -7,6 +7,7 @@
 #![feature(lang_items)]
 
 use core::panic::PanicInfo;
+use crate::mem::Pool;
 
 // see https://docs.rust-embedded.org/embedonomicon/smallest-no-std.html
 #[lang = "eh_personality"]
@@ -16,8 +17,8 @@ extern "C" fn eh_personality() {}
 mod vga;
 mod idt;
 mod asm;
-mod page;
 mod mem;
+mod err;
 
 
 /// The name **must be** `_start`, otherwise the compiler doesn't output anything
@@ -25,26 +26,22 @@ mod mem;
 #[no_mangle]
 #[link_section = ".entry"]
 pub extern "C" fn _start() -> ! {
+    println!("page enabled = {}", asm::page_enabled());
     if !asm::page_enabled() {
-        let stack_high = page::init_page();
-        asm::page_setup(stack_high)
+        println!("setup page");
+        crate::mem::init_page()
     } else {
+        println!("setup page success");
         idt::init_all();
-        println!("hello world");
-        println!("memory size = {}M", asm::memory_size() / 1024 / 1024);
-        crate::mem::init();
-
-        let k = crate::mem::kernel_pool();
-        let u = crate::mem::user_pool();
-
-        println!("kernel: pool size = {}M, p_start = {}M bitmap len = {}", k.pool_sz / 1024 / 1024, k.p_start / 1024 / 1024, k.bitmap.len());
-        println!("user  : pool size = {}M, p_start = {}M bitmap len = {}", u.pool_sz / 1024 / 1024, u.p_start / 1024 / 1024, u.bitmap.len());
+        crate::mem::m_alloc(Pool::KERNEL, 2);
+        println!("hello world!");
         loop {}
     }
 }
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
+    println!("unexpected panic");
     println!("{:#?}", _info);
     loop {}
 }

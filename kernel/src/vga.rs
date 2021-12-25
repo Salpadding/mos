@@ -31,7 +31,7 @@ impl fmt::Write for Writer {
     }
 }
 
-pub extern "C" fn _print(args: fmt::Arguments) {
+pub fn _print(args: fmt::Arguments) {
     let mut w = Writer {};
     w.write_fmt(args);
 }

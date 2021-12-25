@@ -84,8 +84,8 @@ pub fn page_enabled() -> bool {
     api_call(methods::PAGE_ENABLED, &[]) != 0
 }
 
-pub fn page_setup(stack_high: usize) -> ! {
-    api_call(methods::PAGE_SETUP, &[stack_high as u32]);
+pub fn page_setup(pde_start: usize, stack_high: usize) -> ! {
+    api_call(methods::PAGE_SETUP, &[pde_start as u32, stack_high as u32]);
     loop {}
 }
 

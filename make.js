@@ -2,7 +2,7 @@
 const fs = require('fs')
 const path = require('path')
 const cp = require('child_process')
-const memOff = 0x200000
+const memOff = 0x100000
 
 function loader() {
     const bin = fs.readFileSync(path.join(__dirname, 'build/loader.bin'))

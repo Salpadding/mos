@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 rlib = {path = "../rlib"}
-anyhow = { version = "1.0", default-features = false }
 
 [profile.release]
 panic = "abort"
