@@ -9,7 +9,7 @@ mod alloc;
 
 const KERNEL_MEM: usize = 2 << 20;
 const PAGE_SIZE: usize = 4 * 1024;
-const BUF_ST_SIZE: usize = 64;
+const BUF_ST_SIZE: usize = 128;
 
 /// 128kb bit map
 const BIT_MAP_SIZE: usize = (4 * 1024 * 1024 * 1024 / PAGE_SIZE as u64 / 8) as usize;
@@ -35,8 +35,15 @@ macro_rules! cast {
 
 struct PagePool {
     bitmap: &'static mut [u8],
-    pool_sz: usize,
+    total_pages: usize,
+    avl_pages: usize,
     p_start: usize,
+}
+
+impl PagePool {
+    fn size(&self) -> usize {
+        self.total_pages * PAGE_SIZE
+    }
 }
 
 fn kernel_pool() -> &'static mut PagePool {
@@ -73,8 +80,8 @@ pub fn debug() {
     let k = crate::mem::kernel_pool();
     let u = crate::mem::user_pool();
 
-    println!("kernel: pool size = {}M, p_start = {}M bitmap len = {}", k.pool_sz / 1024 / 1024, k.p_start / 1024 / 1024, k.bitmap.len());
-    println!("user  : pool size = {}M, p_start = {}M bitmap len = {}", u.pool_sz / 1024 / 1024, u.p_start / 1024 / 1024, u.bitmap.len());
+    println!("kernel: pool size = {}M, p_start = {}M bitmap len = {}", k.size() / 1024 / 1024, k.p_start / 1024 / 1024, k.bitmap.len());
+    println!("user  : pool size = {}M, p_start = {}M bitmap len = {}", u.size() / 1024 / 1024, u.p_start / 1024 / 1024, u.bitmap.len());
 }
 
 pub fn init() {
@@ -95,12 +102,14 @@ pub fn init() {
 
     k.p_start = RESERVED_MEM;
     k.bitmap = &mut m[..kernel_pages / 8];
-    k.pool_sz = KERNEL_MEM;
+    k.total_pages = kernel_pages;
+    k.avl_pages = k.total_pages;
 
     let m = bit_map();
     u.p_start = RESERVED_MEM + KERNEL_MEM;
     u.bitmap = &mut m[kernel_pages / 8..kernel_pages / 8 + user_pages / 8];
-    u.pool_sz = user_pages * PAGE_SIZE;
+    u.total_pages = user_pages;
+    u.avl_pages = u.total_pages;
 
     let m = bit_map();
     v.bitmap = &mut m[k.bitmap.len() + u.bitmap.len()..(k.bitmap.len() + u.bitmap.len() + k.bitmap.len())];

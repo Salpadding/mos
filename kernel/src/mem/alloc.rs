@@ -19,7 +19,6 @@ impl VAlloc for VPool {
     fn v_alloc(&mut self, pages: usize) -> Result<usize, SE> {
         let v = v_pool();
 
-
         let bit_i = v.bitmap.try_alloc(pages);
         if bit_i < 0 {
             return Err("memory overflow");
@@ -35,6 +34,7 @@ impl VAlloc for VPool {
 
 impl PAlloc for PagePool {
     fn p_alloc(&mut self, init: bool) -> Result<usize, SE> {
+        self.avl_pages -= 1;
         let bit_i = self.bitmap.try_alloc(1);
         if bit_i < 0 { return Err("memory overflow"); }
         self.bitmap.set(bit_i as usize, true);
@@ -61,12 +61,17 @@ pub fn m_alloc(p: Pool, pages: usize) -> Result<usize, SE> {
     if p != Pool::KERNEL {
         return Err("not implemented");
     }
+
     let v = v_pool();
+    let pp = if p == Pool::KERNEL { kernel_pool() } else { user_pool() };
+    if pp.avl_pages < pages {
+        return Err("memory not enough");
+    }
+
     // virtual memory is required to be continuous
     let v_start = v.v_alloc(pages)?;
 
     println!("v_start = 0x{:08X}", v_start);
-    let pp = if p == Pool::KERNEL { kernel_pool() } else { user_pool() };
 
     // physical memory is not required to be continuous
     // we should mapping between virtual address to physical page by page
