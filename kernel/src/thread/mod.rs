@@ -4,6 +4,7 @@ use crate::Pool;
 use crate::thread::Status::Running;
 
 const PCB_PAGES: usize = 1;
+const STACK_MAGIC: u32 = 0x55aa55aa;
 
 #[repr(u8)]
 pub enum Status {
@@ -35,12 +36,14 @@ struct ThreadStack {
     // ebp, ebx, edi, esi
     regs: [u32; 4],
 
-    caller: usize,
+    eip: usize,
+    ret: Routine,
+    rt: Routine,
+    args: usize,
 }
 
 /// process control block, 4kb
 struct PCB {
-    off: usize,
     status: Status,
     priority: u8,
     name: [u8; 8],
@@ -48,7 +51,7 @@ struct PCB {
 }
 
 impl PCB {
-    fn new(name: &str, priority: u8, off: usize) -> &'static mut PCB {
+    fn new(name: &str, priority: u8, off: usize) -> &'static mut Self {
         fill_zero(off, PCB_PAGES * PAGE_SIZE);
         let p: &'static mut PCB = unsafe {
             core::mem::transmute(off)
@@ -58,29 +61,47 @@ impl PCB {
         p.name[..len].copy_from_slice(&name.as_bytes()[..len]);
         p.priority = priority;
         p.status = Running;
-        p.off = off;
+        p.magic = STACK_MAGIC;
         p
     }
 
+    #[inline]
+    fn off(&self) -> usize {
+        self as *const Self as usize
+    }
+
     fn int_stack(&self) -> &'static mut IntStack {
-        let p = self.off + PCB_PAGES * PAGE_SIZE - core::mem::size_of::<IntStack>();
+        let p = self.off() + PCB_PAGES * PAGE_SIZE - core::mem::size_of::<IntStack>();
         unsafe { &mut *(p as *mut _) }
     }
 
     fn th_stack(&self) -> &'static mut ThreadStack {
-        let p = self.off + PCB_PAGES * PAGE_SIZE - core::mem::size_of::<IntStack>()
+        let p = self.off() + PCB_PAGES * PAGE_SIZE - core::mem::size_of::<IntStack>()
             - core::mem::size_of::<ThreadStack>();
         unsafe { &mut *(p as *mut _) }
     }
 
-    fn init(&mut self, rt: Routine, ctx: *mut u8) {}
+    fn init(&mut self, rt: Routine, args: usize) {
+        let th_s = self.th_stack();
+        th_s.eip = unsafe { core::mem::transmute(kernel_thread) };
+        th_s.rt = rt;
+        th_s.args = args;
+
+    }
 }
 
-pub type Routine = extern "C" fn(ctx: *mut u8);
+pub type Routine = extern "C" fn(arg: usize);
 
-pub fn start(r: Routine) -> Result<(), SE> {
+#[inline(never)]
+extern "C" fn kernel_thread(f: Routine, arg: usize) {
+    f(arg);
+}
+
+pub fn start(name: &str, priority: u8, r: Routine, args: usize) -> Result<&'static mut PCB, SE> {
     // allocate a page for process control block
     let pcb = pg_alloc(Pool::KERNEL, PCB_PAGES)?;
+    let pcb = PCB::new(name, priority, pcb);
+    pcb.init(r, args);
 
-    Ok(())
+    Ok(pcb)
 }
