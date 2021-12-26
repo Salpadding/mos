@@ -1,3 +1,4 @@
+
 // allow inline assembly
 #![feature(asm)]
 // disable rust standard library
@@ -9,13 +10,14 @@
 #![feature(lang_items)]
 
 use core::panic::PanicInfo;
-
 use crate::mem::Pool;
 
 // see https://docs.rust-embedded.org/embedonomicon/smallest-no-std.html
 #[lang = "eh_personality"]
 #[no_mangle]
 extern "C" fn eh_personality() {}
+
+
 
 mod vga;
 mod idt;

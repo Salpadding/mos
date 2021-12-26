@@ -142,9 +142,14 @@ impl Node {
 
 #[cfg(test)]
 mod test {
+    use crate::alloc_static;
+
+    alloc_static!(LI, li, crate::list::List);
+
+
     #[test]
     fn test() {
-        let mut li = super::List::new();
+        let mut li = li();
         li.init();
 
         let mut n = super::Node::new();

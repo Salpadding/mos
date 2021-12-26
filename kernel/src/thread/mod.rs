@@ -2,9 +2,14 @@ use crate::err::SE;
 use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc};
 use crate::Pool;
 use crate::thread::Status::Running;
+use rlib::alloc_static;
+use rlib::list::List;
 
 const PCB_PAGES: usize = 1;
 const STACK_MAGIC: u32 = 0x55aa55aa;
+
+alloc_static!(READY_LIST, ready_list, List);
+alloc_static!(ALL_LIST, all_list, List);
 
 #[repr(u8)]
 pub enum Status {
@@ -105,6 +110,10 @@ pub extern "C" fn kernel_thread(f: Routine, arg: usize) {
 }
 
 pub fn init() {
+    // init linked list
+    ready_list().init();
+    all_list().init();
+
 
 }
 
