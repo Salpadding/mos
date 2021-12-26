@@ -35,11 +35,16 @@ mod timer;
 pub extern "C" fn _start() -> ! {
     use crate::mem::page_enabled;
     if !page_enabled() {
+        println!("init page...");
         crate::mem::init_page()
     } else {
         idt::init();
         crate::thread::init();
         crate::timer::init();
+
+        let cur = thread::current_pcb();
+        println!("current thread off= 0x{:08X}", cur.off());
+        println!("current thread = {}", cur.name());
         println!("hello world");
         loop {}
     }
@@ -49,5 +54,6 @@ pub extern "C" fn _start() -> ! {
 fn panic(_info: &PanicInfo) -> ! {
     println!("unexpected panic");
     println!("{:#?}", _info);
-    loop {}
+    loop {
+    }
 }

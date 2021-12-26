@@ -2,7 +2,7 @@ pub use {alloc::pg_alloc, alloc::Pool, page::init_page, page::page_enabled};
 use rlib::bitmap::Bitmap;
 
 use crate::{asm, println};
-use crate::mem::page::{PDE_START, PT_SIZE, RESERVED_MEM};
+use crate::mem::page::{p_alloc, PDE_START, PT_SIZE, RESERVED_MEM};
 
 mod page;
 mod alloc;
@@ -13,10 +13,10 @@ const BUF_ST_SIZE: usize = 128;
 
 /// 128kb bit map
 const BIT_MAP_SIZE: usize = (4 * 1024 * 1024 * 1024 / PAGE_SIZE as u64 / 8) as usize;
-static mut BIT_MAP: [u8; BIT_MAP_SIZE] = [0; BIT_MAP_SIZE];
+static mut BIT_MAP: usize = 0;
 
 /// allocate buffer to global object
-static mut BUF: [u8; BUF_ST_SIZE * 3] = [0u8; BUF_ST_SIZE * 3];
+static mut BUF: usize = 0;
 
 /// pool of virtual address
 struct VPool {
@@ -27,7 +27,7 @@ struct VPool {
 macro_rules! cast {
     ($t: ident, $off: expr) => {
        unsafe {
-            let p: *mut $t = BUF.as_ptr().add($off) as *mut _;
+            let p: *mut $t = (BUF + $off) as *mut _;
             &mut *p
        }
     };
@@ -60,8 +60,11 @@ fn v_pool() -> &'static mut VPool {
 
 fn bit_map() -> &'static mut [u8] {
     unsafe {
+        if BIT_MAP == 0 {
+            BIT_MAP = p_alloc(BIT_MAP_SIZE / PAGE_SIZE, true).unwrap();
+        }
         core::slice::from_raw_parts_mut(
-            BIT_MAP.as_ptr() as *mut _,
+            BIT_MAP as *mut _,
             BIT_MAP_SIZE,
         )
     }
@@ -85,9 +88,12 @@ pub fn debug() {
 }
 
 pub fn init() {
+    unsafe { println!("bitmap address = 0x{:08X}", BIT_MAP ); }
+    unsafe {
+        BUF = p_alloc(1, true).unwrap();
+    }
     // initialize kernel area and bit map
     fill_zero(RESERVED_MEM, KERNEL_MEM);
-    fill_zero(unsafe { bit_map().as_ptr() as usize }, BIT_MAP_SIZE);
 
     let total_mem = asm::memory_size() / PAGE_SIZE as u32 * PAGE_SIZE as u32;
     let user_mem = total_mem as usize - RESERVED_MEM - KERNEL_MEM;

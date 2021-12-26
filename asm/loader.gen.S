@@ -170,7 +170,7 @@ p_mode_start:
     mov edx, KERNEL_ENTRY
     call read_n_sec
 
-    call SELECTOR_CODE:KERNEL_ENTRY
+    jmp SELECTOR_CODE:KERNEL_ENTRY
 
 ; align to 2k
 

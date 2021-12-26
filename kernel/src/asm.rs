@@ -106,7 +106,7 @@ pub fn lidt(addr: usize) {
     // api_call(methods::LIDT, &[addr as u32]);
 }
 
-pub fn page_setup(pde_start: usize, stack_high: usize) -> ! {
+pub fn reset_page(pde_start: usize, new_stack: usize, cb: usize)  {
     unsafe {
         let mut cr0: u32;
         asm!("mov {}, cr0", out(reg) cr0);
@@ -116,12 +116,11 @@ pub fn page_setup(pde_start: usize, stack_high: usize) -> ! {
         "mov ebp, {1}",
         "mov esp, ebp",
         in(reg) pde_start,
-        in(reg) stack_high,
+        in(reg) new_stack
         );
         asm!("mov cr0, {}", in(reg) cr0);
+        asm!("jmp {}", in(reg) cb);
     }
-    let p: fn() -> ! = unsafe { core::mem::transmute(KERNEL_ENTRY) };
-    p()
 }
 
 pub fn int_entries() -> usize {

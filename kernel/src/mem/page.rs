@@ -1,19 +1,21 @@
+use crate::asm::KERNEL_ENTRY;
 use crate::err::SE;
 use crate::mem::{fill_zero, KERNEL_MEM, kernel_pool, PAGE_SIZE};
 use crate::mem::alloc::PAlloc;
 use crate::println;
+use crate::thread::{PCB, PCB_PAGES, PCB_SIZE};
 
 pub const PE_SIZE: usize = 4;
 pub const PT_LEN: usize = 1024;
 pub const PT_SIZE: usize = PE_SIZE * PT_LEN;
 pub const OS_MEM_OFF: usize = 0xc0000000;
-pub const RESERVED_MEM: usize = 6 << 20;
+pub const RESERVED_MEM: usize = 5 << 20;
 
 // 1m area for page
 pub const PAGE_AREA_SIZE: usize = 1024 * 1024;
 
 // page directory must align to 4K
-pub const PDE_START: usize = 0x40000;
+pub const PDE_START: usize = 0x10000;
 
 pub const BUF_UPPER_BOUND: usize = 0x80000;
 
@@ -73,6 +75,22 @@ impl PageTableEntry {
     }
 }
 
+// allocate pages before setup page
+pub fn p_alloc(pages: usize, init: bool) -> Result<usize, SE> {
+    let off = unsafe { PDE_START + PT_SIZE + PD_USED * PT_SIZE };
+    let avl = (BUF_UPPER_BOUND - off) / PAGE_SIZE;
+    if avl < pages {
+        return Err("overflow");
+    }
+    unsafe { PD_USED += pages; }
+
+    if init {
+        fill_zero(off, pages * PAGE_SIZE);
+    }
+    // avoid overflow
+    Ok(off)
+}
+
 // map
 pub fn map_page(v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Result<(), SE> {
     let pd = page_dir();
@@ -85,13 +103,7 @@ pub fn map_page(v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Res
     if !pd[pde_i].exists() {
         let k = kernel_pool();
         let buf = if alloc { k.p_alloc(true)? } else {
-            let off = unsafe { PDE_START + PT_SIZE + PD_USED * PT_SIZE };
-            unsafe { PD_USED += 1; }
-            // avoid overflow
-            if off > BUF_UPPER_BOUND {
-                return Err("overflow");
-            }
-            off
+            p_alloc(1, true)?
         };
         if trace {
             println!("create buf 0x{:08X}", buf);
@@ -132,7 +144,22 @@ pub fn init_page() -> ! {
         map_page(OS_MEM_OFF + i * PAGE_SIZE, i * PAGE_SIZE, 7, false, false).unwrap();
     }
 
+    let esp: usize;
+    unsafe {
+        asm!("mov {}, esp", out(reg) esp);
+    }
 
-    let new_stack = OS_MEM_OFF + (6 << 20) - 0x10;
-    crate::asm::page_setup(PDE_START, new_stack);
+    println!("esp = 0x{:08X}", esp);
+
+    let init_off = p_alloc(PCB_PAGES, true).unwrap();
+    // init process
+    // since we not paged memory, we cannot access 0xc0500000
+    let init = PCB::new("init", 0, init_off);
+    let new_stack = OS_MEM_OFF + init.stack();
+
+    println!("init off = 0x{:08X}", init.off());
+    println!("stack off = 0x{:08X}", new_stack);
+
+    crate::asm::reset_page(PDE_START,  new_stack, KERNEL_ENTRY);
+    loop {}
 }
