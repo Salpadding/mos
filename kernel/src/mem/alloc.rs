@@ -71,14 +71,11 @@ pub fn pg_alloc(p: Pool, pages: usize) -> Result<usize, SE> {
     // virtual memory is required to be continuous
     let v_start = v.v_alloc(pages)?;
 
-    println!("v_start = 0x{:08X}", v_start);
-
     // physical memory is not required to be continuous
     // we should mapping between virtual address to physical page by page
     for i in 0..pages {
         let p_a = pp.p_alloc(false)?;
-        println!("p_a = 0x{:08X}", p_a);
-        map_page(v_start + i * PAGE_SIZE, p_a, 7, true, true)?;
+        map_page(v_start + i * PAGE_SIZE, p_a, 7, false, true)?;
     }
 
     Err("")

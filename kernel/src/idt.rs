@@ -8,6 +8,7 @@ const IDT_DESC_ATTR_DPL0: u8 = 1 << 7 | 0xe;
 
 static mut IDT_PTR: IdtPtr = IdtPtr { size: 0, off: 0 };
 static mut IDT: [u64; ENTRY_SIZE] = [0; ENTRY_SIZE];
+static mut HANDLERS: [usize; ENTRY_SIZE] = [0; ENTRY_SIZE];
 
 static mut COUNTER: u32 = 0;
 
@@ -40,6 +41,24 @@ extern "C" fn int_entry() {
     if vec < 20 {
         panic!("EXCEPTION: {}", EXCEPTIONS[vec as usize]);
     }
+
+    if (vec as usize) < ENTRY_SIZE {
+        unsafe {
+            let f = HANDLERS[vec as usize];
+            if f == 0 {
+                return;
+            }
+
+            let f: fn() = core::mem::transmute(f);
+            f()
+        }
+    };
+}
+
+pub fn register(vec: u16, handle: fn()) {
+    unsafe {
+        HANDLERS[vec as usize] = handle as usize;
+    }
 }
 
 fn idt() -> &'static mut [GateBits] {
@@ -69,7 +88,7 @@ fn int_rust() -> &'static mut u32 {
     }
 }
 
-pub fn init_all() {
+pub fn init() {
     // 1. register rust int handler
     let p = int_entry as usize;
     *int_rust() = p as u32;
@@ -92,12 +111,6 @@ pub fn init_all() {
     unsafe {
         crate::asm::lidt((&IDT_PTR) as *const _ as usize)
     }
-
-    // 6. enable interrupt
-    asm::sti();
-
-    // 7. set timer
-    init_8253();
 }
 
 const PIC_M_CTRL: u16 = 0x20;
@@ -133,19 +146,6 @@ fn init_idt() {
     }
 }
 
-const COUNTER0_PORT: u16 = 0x40;
-const PIT_CONTROL_PORT: u16 = 0x43;
-const READ_WRITE_LATCH: u8 = 3;
-const COUNTER_MODE: u8 = 2;
-const IRQ0_FREQUENCY: u32 = 1;
-const INPUT_FREQUENCY: u32 = 1193180;
-const COUNTER0_VALUE: u32 = INPUT_FREQUENCY / IRQ0_FREQUENCY;
-
-fn init_8253() {
-    asm::out_b(PIT_CONTROL_PORT, READ_WRITE_LATCH << 4 | COUNTER_MODE << 1);
-    asm::out_b(COUNTER0_PORT, (COUNTER0_VALUE & 0xff) as u8);
-    asm::out_b(COUNTER0_PORT, (COUNTER0_VALUE >> 8 & 0xff) as u8);
-}
 
 #[repr(packed)]
 struct IdtPtr {

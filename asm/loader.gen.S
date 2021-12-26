@@ -28,15 +28,6 @@ asm_api:
     ; gdt ptr
     cmp eax, 1
     jz .gdt
-    ; load interrupt descriptor table
-    cmp eax, 2
-    jz .lidt
-    ; if page enabled
-    cmp eax, 3
-    jz .page_enabled
-    ; setup page
-    cmp eax, 4
-    jz .set_page
     cmp eax, 5
     jz .int_entries
     cmp eax, 6
@@ -45,16 +36,6 @@ asm_api:
     jz .div
     cmp eax, 8
     jz .caller
-    cmp eax, 9
-    jz .outb
-    cmp eax, 10
-    jz .outsw
-    cmp eax, 11
-    jz .inb
-    cmp eax, 12
-    jz .insw
-    cmp eax, 13
-    jz .sti
     cmp eax, 14
     jz .mem_sz
     mov eax, 0
@@ -65,35 +46,6 @@ asm_api:
     ret
 .gdt:
     mov dword [asm_buf], gdt_ptr
-    ret
-.page_enabled:
-    mov eax, [page_enabled]
-    mov [asm_buf], eax
-    ret
-.set_page:
-    ; the new stack base
-    mov ecx, [asm_buf + 8]
-    ; enable paging
-    ; call setup_page
-
-    mov  eax, [asm_buf + 4]
-    mov  cr3, eax
-
-    mov eax, cr0
-    or  eax, 1 << 31
-    mov cr0, eax
-
-    mov dword [page_enabled], 1
-
-    mov eax, ecx
-    mov esp, eax,
-    mov ebp, esp
-
-
-   call SELECTOR_CODE:KERNEL_ENTRY
-.lidt:
-    mov eax, [asm_buf + 4]
-    lidt [eax]
     ret
 .int_entries:
     mov dword [asm_buf], int_entries
@@ -111,23 +63,12 @@ asm_api:
     mov eax, [esp]
     mov [asm_buf], eax
     ret
-.outb:
-    mov edx, [asm_buf + 4]
-    mov eax, [asm_buf + 8]
-    out dx, al
-    ret
 .outsw:
     cld
     mov edx, [asm_buf + 4]
     mov ecx, [asm_buf + 12]
     mov esi, [asm_buf + 8]
     rep outsw
-    ret
-.inb:
-    mov edx, [asm_buf + 4]
-    mov eax, 0
-    in  al, dx
-    mov [asm_buf], eax
     ret
 .insw:
     cld
@@ -136,17 +77,10 @@ asm_api:
     mov edi, [asm_buf + 8]
     rep insw
     ret
-.sti:
-    sti
-    ret
 .mem_sz:
     mov eax, [mem_sz],
     mov [asm_buf], eax
     ret
-
-page_enabled:
-    dd 0
-
 mem_sz:
     dd 0
 

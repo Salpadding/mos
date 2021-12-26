@@ -17,7 +17,7 @@ pub enum Status {
 }
 
 /// interrupt stack
-struct IntStack {
+struct IntBlock {
     // eax, ebx, ecx, edx, esp, ebp, esi, edi,
     g_regs: [u32; 8],
     // es, cs, ss, ds, fs, gs
@@ -32,10 +32,10 @@ struct IntStack {
 }
 
 /// thread stack
-struct ThreadStack {
+#[repr(packed)]
+struct ThreadBlock {
     // ebp, ebx, edi, esi
     regs: [u32; 4],
-
     eip: usize,
     ret: Routine,
     rt: Routine,
@@ -43,7 +43,7 @@ struct ThreadStack {
 }
 
 /// process control block, 4kb
-struct PCB {
+pub struct PCB {
     status: Status,
     priority: u8,
     name: [u8; 8],
@@ -65,25 +65,33 @@ impl PCB {
         p
     }
 
+    fn overflow(&self) -> bool {
+        self.magic == STACK_MAGIC
+    }
     #[inline]
     fn off(&self) -> usize {
         self as *const Self as usize
     }
 
-    fn int_stack(&self) -> &'static mut IntStack {
-        let p = self.off() + PCB_PAGES * PAGE_SIZE - core::mem::size_of::<IntStack>();
+    fn int_block(&self) -> &'static mut IntBlock {
+        let p = self.off() + PCB_PAGES * PAGE_SIZE - core::mem::size_of::<IntBlock>();
         unsafe { &mut *(p as *mut _) }
     }
 
-    fn th_stack(&self) -> &'static mut ThreadStack {
-        let p = self.off() + PCB_PAGES * PAGE_SIZE - core::mem::size_of::<IntStack>()
-            - core::mem::size_of::<ThreadStack>();
+    fn th_block(&self) -> &'static mut ThreadBlock {
+        let p = self.off() + PCB_PAGES * PAGE_SIZE - core::mem::size_of::<IntBlock>()
+            - core::mem::size_of::<ThreadBlock>();
         unsafe { &mut *(p as *mut _) }
+    }
+
+    fn stack(&self) -> usize {
+        self.off() + PCB_PAGES * PAGE_SIZE - core::mem::size_of::<IntBlock>()
+            - core::mem::size_of::<ThreadBlock>()
     }
 
     fn init(&mut self, rt: Routine, args: usize) {
-        let th_s = self.th_stack();
-        th_s.eip = unsafe { core::mem::transmute(kernel_thread) };
+        let th_s = self.th_block();
+        th_s.eip = unsafe { kernel_thread as usize };
         th_s.rt = rt;
         th_s.args = args;
 
@@ -92,9 +100,12 @@ impl PCB {
 
 pub type Routine = extern "C" fn(arg: usize);
 
-#[inline(never)]
-extern "C" fn kernel_thread(f: Routine, arg: usize) {
+pub extern "C" fn kernel_thread(f: Routine, arg: usize) {
     f(arg);
+}
+
+pub fn init() {
+
 }
 
 pub fn start(name: &str, priority: u8, r: Routine, args: usize) -> Result<&'static mut PCB, SE> {
@@ -103,5 +114,12 @@ pub fn start(name: &str, priority: u8, r: Routine, args: usize) -> Result<&'stat
     let pcb = PCB::new(name, priority, pcb);
     pcb.init(r, args);
 
+    unsafe {
+        asm!(
+        // reset esp
+        "mov esp, {}",
+        in(reg) pcb.stack()
+        );
+    }
     Ok(pcb)
 }

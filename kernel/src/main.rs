@@ -23,6 +23,7 @@ mod asm;
 mod mem;
 mod err;
 mod thread;
+mod timer;
 
 
 /// The name **must be** `_start`, otherwise the compiler doesn't output anything
@@ -31,15 +32,13 @@ mod thread;
 #[link_section = ".entry"]
 pub extern "C" fn _start() -> ! {
     use crate::mem::page_enabled;
-    println!("page enabled = {}", page_enabled());
     if !page_enabled() {
-        println!("setup page");
         crate::mem::init_page()
     } else {
-        println!("setup page success");
-        idt::init_all();
-        crate::mem::pg_alloc(Pool::KERNEL, 2);
-        println!("hello world!");
+        idt::init();
+        crate::thread::init();
+        crate::timer::init();
+        println!("hello world");
         loop {}
     }
 }

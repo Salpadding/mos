@@ -62,17 +62,32 @@ pub fn in_b(port: u16) -> u8 {
         asm!("in al, dx", out("al") r, in("dx") port)
     };
     r
-    // api_call(methods::IN_B, &[port as u32]) as u8
 }
 
 pub fn out_sw(port: u16, buf: &[u16]) {
-    let src = buf.as_ptr() as usize;
-    api_call(methods::OUT_SW, &[port as u32, src as u32, buf.len() as u32]);
+    unsafe {
+        asm!(
+        "cld",
+        "rep outsw",
+        in("dx") port,
+        in("ecx")  buf.len(),
+        in("edi")  buf.as_ptr() as usize
+        )
+    }
 }
 
+
+
 pub fn in_sw(port: u16, buf: &mut [u16]) {
-    let src = buf.as_ptr() as usize;
-    api_call(methods::IN_SW, &[port as u32, src as u32, buf.len() as u32]);
+    unsafe {
+        asm!(
+        "cld",
+        "rep insw",
+        in("dx") port,
+        in("ecx")  buf.len(),
+        in("edi")  buf.as_ptr() as usize
+        )
+    }
 }
 
 pub fn echo(x: u32) -> u32 {
@@ -85,11 +100,10 @@ pub fn gdt() -> &'static mut GdtPtr {
 }
 
 pub fn lidt(addr: usize) {
-    api_call(methods::LIDT, &[addr as u32]);
-}
-
-pub fn page_enabled() -> bool {
-    api_call(methods::PAGE_ENABLED, &[]) != 0
+    unsafe {
+        asm!("lidt [{}]", in(reg) addr);
+    }
+    // api_call(methods::LIDT, &[addr as u32]);
 }
 
 pub fn page_setup(pde_start: usize, stack_high: usize) -> ! {
