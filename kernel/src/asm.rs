@@ -66,10 +66,15 @@ pub trait RegCtx {
         let esi = *self.esi();
         let edi = *self.edi();
         let ds = *self.ds();
-        let ds = *self.es();
-        let s = *self.es();
+        let es = *self.es();
+        let fs = *self.fs();
+        let gs = *self.gs();
+        let cs = *self.cs();
+        let eip = *self.eip();
         println!("eax = 0x{:08X} ebx = 0x{:08X} ecx = 0x{:08X} edx = 0x{:08X}", eax, ebx, ecx, edx);
         println!("esp = 0x{:08X} ebp = 0x{:08X} esi = 0x{:08X} edi = 0x{:08X}", esp, ebp, esi, edi);
+        println!("ds = 0x{:08X}  es  = 0x{:08X} fs  = 0x{:08X} gs  = 0x{:08X}", ds, es, fs, gs);
+        println!("cs = 0x{:08X}  eip = 0x{:08X}", cs, eip);
     }
 }
 

@@ -227,6 +227,9 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
    ; save eax, ecx, edx, ebx, esp, ebp, esi, edi
    ; and ds, es, fs, gs
    pushad
+   mov eax, [int_esp_0]
+   add eax, 16
+   mov [esp + 12], eax
 
    ; we are now 32bit
    push ds
@@ -258,6 +261,7 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
 
    mov  dword [asm_buf], %1
    call [int_rust]       ; call rust interrupt handler
+   mov [asm_buf], eax
 
    jmp int_exit
 
@@ -274,6 +278,9 @@ int_exit:
    pop ds
    popad
 
+   cmp dword [asm_buf], 1
+   jz  .sw
+
    mov esp, [int_esp_0]
 
    ; eflags
@@ -284,6 +291,14 @@ int_exit:
    push dword [reg_ctx + 4]
 
    iretd
+.sw:
+    mov esp, [reg_ctx + REG_CTX_LEN * 4 - 4 * 3]
+    jmp $
+    nop
+    ; eip
+    push dword [reg_ctx + 4]    
+    ; perform a short jump
+    ret
 
 ; align to 4k
 ; nasm will do some magic optimize if not reserve padding

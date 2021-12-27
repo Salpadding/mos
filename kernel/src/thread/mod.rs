@@ -158,7 +158,7 @@ pub fn init() {
 }
 
 // process scheduler
-pub fn schedule() {
+pub fn schedule() -> u32 {
     // get current pcb
     let cur = current_pcb();
 
@@ -173,7 +173,7 @@ pub fn schedule() {
 
     if cur.ticks != 0 {
         cur.ticks -= 1;
-        return;
+        return 1;
     }
 
 

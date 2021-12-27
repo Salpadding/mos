@@ -36,7 +36,9 @@ pub static EXCEPTIONS: &[&'static str] = &[
     "#XF SIMD Floating-Point Exception",
 ];
 
-extern "C" fn int_entry() {
+// if return 0, recover from interrupt
+// else switch current stack to another stack
+extern "C" fn int_entry() -> u32 {
     let vec = crate::asm::asm_buf()[0];
 
     if vec < 20 {
@@ -48,13 +50,15 @@ extern "C" fn int_entry() {
         unsafe {
             let f = HANDLERS[vec as usize];
             if f == 0 {
-                return;
+                return 0;
             }
 
-            let f: fn() = core::mem::transmute(f);
-            f()
+            let f: fn() -> u32 = core::mem::transmute(f);
+            return f();
         }
     };
+
+    0
 }
 
 pub fn int_enabled() -> bool {
@@ -62,7 +66,7 @@ pub fn int_enabled() -> bool {
     e_flags & E_FLAGS_IF != 0
 }
 
-pub fn register(vec: u16, handle: fn()) {
+pub fn register(vec: u16, handle: fn() -> u32 ) {
     unsafe {
         HANDLERS[vec as usize] = handle as usize;
     }
