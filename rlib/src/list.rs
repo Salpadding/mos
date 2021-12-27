@@ -1,6 +1,7 @@
 use core::marker::PhantomData;
 
 ///  node of bi direction linked list
+#[repr(C)]
 pub struct Node {
     prev: usize,
     next: usize,
@@ -49,6 +50,7 @@ impl Node {
     }
 }
 
+#[repr(C)]
 pub struct List {
     head: Node,
     tail: Node,

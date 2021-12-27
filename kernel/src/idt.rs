@@ -2,6 +2,7 @@ use crate::{asm, panic, println};
 
 const ENTRY_SIZE: usize = 33;
 const SELECTOR_CODE: u16 = 1 << 3;
+const E_FLAGS_IF: u32 = 0x00000200;
 
 // 32bit interrupt gate
 const IDT_DESC_ATTR_DPL0: u8 = 1 << 7 | 0xe;
@@ -39,7 +40,8 @@ extern "C" fn int_entry() {
     let vec = crate::asm::asm_buf()[0];
 
     if vec < 20 {
-        panic!("EXCEPTION: {}", EXCEPTIONS[vec as usize]);
+        println!("EXCEPTION: {}", EXCEPTIONS[vec as usize]);
+        loop {}
     }
 
     if (vec as usize) < ENTRY_SIZE {
@@ -53,6 +55,11 @@ extern "C" fn int_entry() {
             f()
         }
     };
+}
+
+pub fn int_enabled() -> bool {
+    let e_flags = crate::e_flags!();
+    e_flags & E_FLAGS_IF != 0
 }
 
 pub fn register(vec: u16, handle: fn()) {

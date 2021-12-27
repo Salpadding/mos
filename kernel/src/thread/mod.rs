@@ -1,15 +1,21 @@
 use rlib::alloc_static;
 use rlib::list::List;
 
+use crate::{Pool, println};
 use crate::err::SE;
 use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc};
-use crate::{Pool, println};
 use crate::thread::Status::Running;
 
 pub const PCB_PAGES: usize = 1;
 const STACK_MAGIC: u32 = 0x55aa55aa;
-
 pub const PCB_SIZE: usize = PCB_PAGES * PAGE_SIZE;
+
+
+static mut TICKS: u32 = 0;
+
+pub fn ticks() -> &'static mut u32 {
+    unsafe { &mut TICKS }
+}
 
 macro_rules! cur_pcb {
     () => {
@@ -59,9 +65,12 @@ struct ThreadBlock {
     args: usize,
 }
 
+#[repr(C)]
 pub struct PCB {
     status: Status,
     priority: u8,
+    ticks: u8,
+    elapsed_ticks: u32,
     name_len: u8,
     name_buf: [u8; 16],
     magic: u32,
@@ -76,7 +85,7 @@ impl PCB {
         let len = p.name_buf.len().min(name.as_bytes().len());
         p.name_len = len as u8;
         p.name_buf[..len].copy_from_slice(&name.as_bytes()[..len]);
-
+        p.ticks = priority;
         p.priority = priority;
         p.status = Running;
         p.magic = STACK_MAGIC;
@@ -84,7 +93,7 @@ impl PCB {
     }
 
     fn overflow(&self) -> bool {
-        self.magic == STACK_MAGIC
+        self.magic != STACK_MAGIC
     }
 
     pub fn name(&self) -> &str {
@@ -120,6 +129,7 @@ impl PCB {
     }
 }
 
+// get current process control block
 pub fn current_pcb() -> &'static mut PCB {
     let p = cur_pcb!();
     unsafe { &mut *(p as usize as *mut _) }
@@ -135,6 +145,34 @@ pub fn init() {
     // init linked list
     ready_list().init();
     all_list().init();
+
+    // register handler
+    crate::idt::register(0x20, schedule);
+}
+
+// process scheduler
+pub fn schedule() {
+    // get current pcb
+    let cur = current_pcb();
+
+    // check if overflow
+    assert!(!cur.overflow(), "stack of thread {} overflow!", cur.name());
+
+    let t = ticks();
+    unsafe {
+        *t = t.unchecked_add(1);
+        cur.elapsed_ticks = cur.elapsed_ticks.unchecked_add(1)
+    }
+
+    if cur.ticks != 0 {
+        cur.ticks -= 1;
+        return;
+    }
+
+
+    // switch to another thread
+    println!("tick of thread {} used", cur.name());
+    loop {}
 }
 
 pub fn start(name: &str, priority: u8, r: Routine, args: usize) -> Result<&'static mut PCB, SE> {

@@ -10,6 +10,19 @@ pub const KERNEL_ENTRY: usize = 1 << 20;
 type AsmApi = extern "C" fn();
 type AsmBuf = &'static mut [u32];
 
+#[macro_export]
+macro_rules! e_flags {
+    () => {
+        {
+            let x: u32;
+            unsafe {
+                asm!("pushfd", "pop {}", out(reg) x);
+            }
+            x
+        }
+    };
+}
+
 pub fn asm_buf() -> AsmBuf {
     unsafe { core::slice::from_raw_parts_mut(ASM_BUF_OFF as *mut _, ASM_BUF_LEN) }
 }
@@ -77,7 +90,6 @@ pub fn out_sw(port: u16, buf: &[u16]) {
 }
 
 
-
 pub fn in_sw(port: u16, buf: &mut [u16]) {
     unsafe {
         asm!(
@@ -103,10 +115,10 @@ pub fn lidt(addr: usize) {
     unsafe {
         asm!("lidt [{}]", in(reg) addr);
     }
-    // api_call(methods::LIDT, &[addr as u32]);
 }
 
-pub fn reset_page(pde_start: usize, new_stack: usize, cb: usize)  {
+/// setup page, new stack top, then jump to callback
+pub fn page_jmp(pde_start: usize, new_stack: usize, cb: usize) {
     unsafe {
         let mut cr0: u32;
         asm!("mov {}, cr0", out(reg) cr0);
@@ -141,6 +153,10 @@ pub fn caller() -> u32 {
 
 pub fn sti() {
     unsafe { asm!("sti"); }
+}
+
+pub fn cli() {
+    unsafe { asm!("cli"); }
 }
 
 #[repr(packed)]

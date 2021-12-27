@@ -149,17 +149,12 @@ pub fn init_page() -> ! {
         asm!("mov {}, esp", out(reg) esp);
     }
 
-    println!("esp = 0x{:08X}", esp);
-
     let init_off = p_alloc(PCB_PAGES, true).unwrap();
     // init process
     // since we not paged memory, we cannot access 0xc0500000
-    let init = PCB::new("init", 0, init_off);
+    let init = PCB::new("init", 0xff, init_off);
     let new_stack = OS_MEM_OFF + init.stack();
 
-    println!("init off = 0x{:08X}", init.off());
-    println!("stack off = 0x{:08X}", new_stack);
-
-    crate::asm::reset_page(PDE_START,  new_stack, KERNEL_ENTRY);
+    crate::asm::page_jmp(PDE_START, new_stack, KERNEL_ENTRY);
     loop {}
 }

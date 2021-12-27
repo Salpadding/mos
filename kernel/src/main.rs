@@ -1,4 +1,3 @@
-
 // allow inline assembly
 #![feature(asm)]
 // disable rust standard library
@@ -8,15 +7,16 @@
 
 // see https://docs.rust-embedded.org/embedonomicon/smallest-no-std.html
 #![feature(lang_items)]
+#![feature(unchecked_math)]
 
 use core::panic::PanicInfo;
+
 use crate::mem::Pool;
 
 // see https://docs.rust-embedded.org/embedonomicon/smallest-no-std.html
 #[lang = "eh_personality"]
 #[no_mangle]
 extern "C" fn eh_personality() {}
-
 
 
 mod vga;
@@ -36,24 +36,34 @@ pub extern "C" fn _start() -> ! {
     use crate::mem::page_enabled;
     if !page_enabled() {
         println!("init page...");
+
+        // setup page, page allocator, init thread pcb, jump to _start()
         crate::mem::init_page()
     } else {
+        // load interrupt descriptor table
         idt::init();
+
+        // add main thread into list, register scheduler
         crate::thread::init();
+
+        // increase interrupt frequency
         crate::timer::init();
 
+        // print current thread
         let cur = thread::current_pcb();
         println!("current thread off= 0x{:08X}", cur.off());
         println!("current thread = {}", cur.name());
         println!("hello world");
+
+        // enable interrupt
+        asm::sti();
+        println!("_start: int enabled = {}", idt::int_enabled());
         loop {}
     }
 }
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
-    println!("unexpected panic");
     println!("{:#?}", _info);
-    loop {
-    }
+    loop {}
 }
