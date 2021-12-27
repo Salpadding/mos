@@ -49,7 +49,6 @@ pub trait RegCtx {
     ix!(edi);
     ix!(es);
     ix!(cs);
-    ix!(ss);
     ix!(ds);
     ix!(fs);
     ix!(gs);
@@ -66,6 +65,9 @@ pub trait RegCtx {
         let ebp = *self.ebp();
         let esi = *self.esi();
         let edi = *self.edi();
+        let ds = *self.ds();
+        let ds = *self.es();
+        let s = *self.es();
         println!("eax = 0x{:08X} ebx = 0x{:08X} ecx = 0x{:08X} edx = 0x{:08X}", eax, ebx, ecx, edx);
         println!("esp = 0x{:08X} ebp = 0x{:08X} esi = 0x{:08X} edi = 0x{:08X}", esp, ebp, esi, edi);
     }
@@ -80,12 +82,12 @@ impl RegCtx for [u32] {
     mx!(ebp, REG_CTX_LEN - 6);
     mx!(esi, REG_CTX_LEN - 7);
     mx!(edi, REG_CTX_LEN - 8);
-    mx!(es, REG_CTX_LEN - 9);
+    mx!(ds, REG_CTX_LEN - 9);
+    mx!(es, REG_CTX_LEN - 10);
+    mx!(fs, REG_CTX_LEN - 11);
+    mx!(gs, REG_CTX_LEN - 12);
+
     mx!(cs, 2);
-    mx!(ss, REG_CTX_LEN - 11);
-    mx!(ds, REG_CTX_LEN - 12);
-    mx!(fs, REG_CTX_LEN - 13);
-    mx!(gs, REG_CTX_LEN - 14);
     mx!(eip, 1);
     mx!(err_code, 0);
     mx!(e_flags, 3);

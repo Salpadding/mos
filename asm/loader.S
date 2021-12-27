@@ -225,14 +225,12 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
    mov  esp, reg_ctx + REG_CTX_LEN * 4
 
    ; save eax, ecx, edx, ebx, esp, ebp, esi, edi
-   ; and es, cs, ss, ds, fs, gs
+   ; and ds, es, fs, gs
    pushad
 
    ; we are now 32bit
-   push es
-   push cs
-   push ss
    push ds
+   push es
    push fs
    push gs
 
@@ -269,14 +267,11 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
 ;;; IDT_CODE ;;;
 
 int_exit:
-   ; recover general purpose register
    mov esp, [int_esp_1]
    pop gs
    pop fs
-   pop ds
-   pop ss
-   pop cs
    pop es
+   pop ds
    popad
 
    mov esp, [int_esp_0]
