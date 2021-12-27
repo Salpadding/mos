@@ -10,6 +10,7 @@
 #![feature(unchecked_math)]
 
 use core::panic::PanicInfo;
+use crate::asm::switch_to;
 
 use crate::mem::Pool;
 
@@ -35,6 +36,12 @@ mod timer;
 pub extern "C" fn _start() -> ! {
     use crate::mem::page_enabled;
     if !page_enabled() {
+        // load constants
+        unsafe {
+            thread::SWITCH_TO = switch_to();
+            asm::REG_CTX_OFF = asm::reg_ctx_off();
+        }
+
         println!("init page...");
 
         // setup page, page allocator, init thread pcb, jump to _start()

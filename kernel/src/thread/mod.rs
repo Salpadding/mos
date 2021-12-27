@@ -2,6 +2,7 @@ use rlib::alloc_static;
 use rlib::list::List;
 
 use crate::{Pool, println};
+use crate::asm::{reg_ctx, RegCtx, switch_to};
 use crate::err::SE;
 use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc};
 use crate::thread::Status::Running;
@@ -12,6 +13,8 @@ pub const PCB_SIZE: usize = PCB_PAGES * PAGE_SIZE;
 
 
 static mut TICKS: u32 = 0;
+// address of switch to
+pub static mut SWITCH_TO: usize = 0;
 
 pub fn ticks() -> &'static mut u32 {
     unsafe { &mut TICKS }
@@ -41,6 +44,7 @@ pub enum Status {
 }
 
 /// interrupt stack
+#[repr(packed)]
 struct IntBlock {
     // eax, ebx, ecx, edx, esp, ebp, esi, edi,
     g_regs: [u32; 8],
@@ -65,8 +69,9 @@ struct ThreadBlock {
     args: usize,
 }
 
-#[repr(C)]
+#[repr(packed)]
 pub struct PCB {
+    esp: usize,
     status: Status,
     priority: u8,
     ticks: u8,
@@ -89,6 +94,8 @@ impl PCB {
         p.priority = priority;
         p.status = Running;
         p.magic = STACK_MAGIC;
+        p.esp = p.stack();
+
         p
     }
 
@@ -172,6 +179,12 @@ pub fn schedule() {
 
     // switch to another thread
     println!("tick of thread {} used", cur.name());
+
+    // print register context
+
+    let ctx = reg_ctx();
+    ctx.print();
+
     loop {}
 }
 

@@ -38,6 +38,10 @@ asm_api:
     jz .caller
     cmp eax, 14
     jz .mem_sz
+    cmp eax, 15
+    jz .switch_to
+    cmp eax, 16
+    jz .reg_ctx
     mov eax, 0
     ret
 .echo:
@@ -80,6 +84,13 @@ asm_api:
 .mem_sz:
     mov eax, [mem_sz],
     mov [asm_buf], eax
+    ret
+.switch_to:
+    mov eax, switch_to
+    mov [asm_buf], eax
+    ret
+.reg_ctx:
+    mov dword [asm_buf], reg_ctx
     ret
 mem_sz:
     dd 0
@@ -158,6 +169,22 @@ start:
     jmp SELECTOR_CODE:p_mode_start
 
 [bits 32]
+switch_to:
+    push esi
+    push edi
+    push ebx
+    push ebp
+
+    mov  eax, [asm_buf]
+    mov  [eax], esp
+    mov  eax, [asm_buf + 4]
+    mov  esp, [eax]
+
+    pop  ebp
+    pop  ebx
+    pop  edi
+    pop  esi
+    ret
 p_mode_start:
     ; initialize data, stack base
     mov ax, SELECTOR_DATA
@@ -172,28 +199,65 @@ p_mode_start:
 
     jmp SELECTOR_CODE:KERNEL_ENTRY
 
+
+REG_CTX_LEN equ 32
+; register context
+reg_ctx:
+    times REG_CTX_LEN dd 0
 ; align to 2k
 
+; store esp temporary in isr
+int_esp_0:
+    dd 0
+int_esp_1:
+    dd 0
+
+
 %define ERROR_CODE nop		 ; 若在相关的异常中cpu已经自动压入了错误码,为保持栈中格式统一,这里不做操作.
-%define ZERO push 0		 ; 若在相关的异常中cpu没有压入错误码,为了统一栈中格式,就手工压入一个0
+%define ZERO push dword 0		 ; 若在相关的异常中cpu没有压入错误码,为了统一栈中格式,就手工压入一个0
 
 %macro VECTOR 2
 int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一个中断类型一个中断处理程序，自己知道自己的中断向量号是多少
-
    %2				 ; 中断若有错误码会压在eip后面
+   mov  [int_esp_0], esp ; backup esp
+
 ; 以下是保存上下文环境
-   push ds
+   mov  esp, reg_ctx + REG_CTX_LEN * 4
+
+   ; save eax, ecx, edx, ebx, esp, ebp, esi, edi
+   ; and es, cs, ss, ds, fs, gs
+   pushad
+
+   ; we are now 32bit
    push es
+   push cs
+   push ss
+   push ds
    push fs
    push gs
-   pushad			 ; PUSHAD指令压入32位寄存器,其入栈顺序是: EAX,ECX,EDX,EBX,ESP,EBP,ESI,EDI
+
+   mov [int_esp_1], esp
+   mov esp, [int_esp_0]
+
+   ; error code
+   pop dword [reg_ctx]
+
+   ; eip
+   pop dword [reg_ctx + 4]
+
+   ; cs
+   pop dword [reg_ctx + 8]
+
+   ; eflags
+   pop dword [reg_ctx + 12]
+
+   mov [int_esp_0], esp
 
    ; 如果是从片上进入的中断,除了往从片上发送EOI外,还要往主片上发送EOI
    mov al,0x20                   ; 中断结束命令EOI
    out 0xa0,al                   ; 向从片发送
    out 0x20,al                   ; 向主片发送
 
-   push %1			 ;           ; push vector
    mov  dword [asm_buf], %1
    call [int_rust]       ; call rust interrupt handler
 
@@ -205,16 +269,27 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
 ;;; IDT_CODE ;;;
 
 int_exit:
-; 以下是恢复上下文环境
-   add esp, 4			   ; 跳过中断号
-   popad
+   ; recover general purpose register
+   mov esp, [int_esp_1]
    pop gs
    pop fs
-   pop es
    pop ds
-   add esp, 4			   ; 跳过error_code
+   pop ss
+   pop cs
+   pop es
+   popad
+
+   mov esp, [int_esp_0]
+
+   ; eflags
+   push dword [reg_ctx + 12]
+   ; cs
+   push dword [reg_ctx + 8]
+   ; eip
+   push dword [reg_ctx + 4]
+
    iretd
 
 ; align to 4k
 ; nasm will do some magic optimize if not reserve padding
-times 4*1024 - ($ - $$) db 0 
+times 8*1024 - ($ - $$) db 0 

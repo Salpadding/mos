@@ -7,8 +7,90 @@ pub const ASM_BUF_LEN: usize = 4;
 pub const ASM_API_OFF: usize = ASM_BUF_OFF + ASM_BUF_LEN * 4;
 pub const KERNEL_ENTRY: usize = 1 << 20;
 
+pub static mut REG_CTX_OFF: usize = 0;
+
 type AsmApi = extern "C" fn();
 type AsmBuf = &'static mut [u32];
+
+const REG_CTX_LEN: usize = 32;
+
+// get register context, for
+pub fn reg_ctx() -> &'static mut [u32] {
+    unsafe {
+        core::slice::from_raw_parts_mut(
+            REG_CTX_OFF as *mut _,
+            REG_CTX_LEN,
+        )
+    }
+}
+
+macro_rules! ix {
+    ($f: ident) => {
+        fn $f(&mut self) -> &mut u32;
+    };
+}
+
+macro_rules! mx {
+    ($f: ident, $i: expr) => {
+        fn $f(&mut self) -> &mut u32 {
+            &mut self[$i]
+        }
+    };
+}
+
+pub trait RegCtx {
+    ix!(eax);
+    ix!(ebx);
+    ix!(ecx);
+    ix!(edx);
+    ix!(esp);
+    ix!(ebp);
+    ix!(esi);
+    ix!(edi);
+    ix!(es);
+    ix!(cs);
+    ix!(ss);
+    ix!(ds);
+    ix!(fs);
+    ix!(gs);
+    ix!(eip);
+    ix!(err_code);
+    ix!(e_flags);
+
+    fn print(&mut self) {
+        let eax = *self.eax();
+        let ebx = *self.ebx();
+        let ecx = *self.ecx();
+        let edx = *self.edx();
+        let esp = *self.esp();
+        let ebp = *self.ebp();
+        let esi = *self.esi();
+        let edi = *self.edi();
+        println!("eax = 0x{:08X} ebx = 0x{:08X} ecx = 0x{:08X} edx = 0x{:08X}", eax, ebx, ecx, edx);
+        println!("esp = 0x{:08X} ebp = 0x{:08X} esi = 0x{:08X} edi = 0x{:08X}", esp, ebp, esi, edi);
+    }
+}
+
+impl RegCtx for [u32] {
+    mx!(eax, REG_CTX_LEN - 1);
+    mx!(ecx, REG_CTX_LEN - 2);
+    mx!(edx, REG_CTX_LEN - 3);
+    mx!(ebx, REG_CTX_LEN - 4);
+    mx!(esp, REG_CTX_LEN - 5);
+    mx!(ebp, REG_CTX_LEN - 6);
+    mx!(esi, REG_CTX_LEN - 7);
+    mx!(edi, REG_CTX_LEN - 8);
+    mx!(es, REG_CTX_LEN - 9);
+    mx!(cs, 2);
+    mx!(ss, REG_CTX_LEN - 11);
+    mx!(ds, REG_CTX_LEN - 12);
+    mx!(fs, REG_CTX_LEN - 13);
+    mx!(gs, REG_CTX_LEN - 14);
+    mx!(eip, 1);
+    mx!(err_code, 0);
+    mx!(e_flags, 3);
+}
+
 
 #[macro_export]
 macro_rules! e_flags {
@@ -48,6 +130,8 @@ mod methods {
     pub const IN_SW: u32 = 12;
     pub const STI: u32 = 13;
     pub const MEM_SZ: u32 = 14;
+    pub const SWITCH_TO: u32 = 15;
+    pub const REG_CTX: u32 = 16;
 }
 
 fn api_call(method: u32, args: &[u32]) -> u32 {
@@ -157,6 +241,14 @@ pub fn sti() {
 
 pub fn cli() {
     unsafe { asm!("cli"); }
+}
+
+pub fn switch_to() -> usize {
+    api_call(methods::SWITCH_TO, &[]) as usize
+}
+
+pub fn reg_ctx_off() -> usize {
+    api_call(methods::REG_CTX, &[]) as usize
 }
 
 #[repr(packed)]
