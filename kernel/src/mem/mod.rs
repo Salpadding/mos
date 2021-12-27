@@ -7,7 +7,7 @@ use crate::mem::page::{p_alloc, PDE_START, PT_SIZE, RESERVED_MEM};
 mod page;
 mod alloc;
 
-const KERNEL_MEM: usize = 2 << 20;
+const KERNEL_MEM: usize = 3 << 20;
 pub const PAGE_SIZE: usize = 4 * 1024;
 const BUF_ST_SIZE: usize = 128;
 

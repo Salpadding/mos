@@ -12,7 +12,7 @@ pub static mut REG_CTX_OFF: usize = 0;
 type AsmApi = extern "C" fn();
 type AsmBuf = &'static mut [u32];
 
-const REG_CTX_LEN: usize = 32;
+pub const REG_CTX_LEN: usize = 32;
 
 // get register context, for
 pub fn reg_ctx() -> &'static mut [u32] {
@@ -56,6 +56,8 @@ pub trait RegCtx {
     ix!(err_code);
     ix!(e_flags);
 
+    fn reset_general(&mut self);
+
     fn print(&mut self) {
         let eax = *self.eax();
         let ebx = *self.ebx();
@@ -96,6 +98,10 @@ impl RegCtx for [u32] {
     mx!(eip, 1);
     mx!(err_code, 0);
     mx!(e_flags, 3);
+
+    fn reset_general(&mut self) {
+        self[REG_CTX_LEN-8..REG_CTX_LEN].fill(0);
+    }
 }
 
 

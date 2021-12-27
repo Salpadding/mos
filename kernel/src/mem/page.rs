@@ -3,7 +3,7 @@ use crate::err::SE;
 use crate::mem::{fill_zero, KERNEL_MEM, kernel_pool, PAGE_SIZE};
 use crate::mem::alloc::PAlloc;
 use crate::println;
-use crate::thread::{PCB, PCB_PAGES, PCB_SIZE};
+use crate::thread::{PCB, PCB_PAGES, PCB_SIZE, Status};
 
 pub const PE_SIZE: usize = 4;
 pub const PT_LEN: usize = 1024;
@@ -120,6 +120,7 @@ pub fn map_page(v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Res
     if pt[v.pte_i()].exists() {
         println!("page table already exists v = 0x{:08X} p = 0x{:08X} pde_i = {}, pte_i = {}", v, p, pde_i, v.pte_i());
     }
+
     pt[v.pte_i()] = PageTableEntry::new(p, flags);
     Ok(())
 }
@@ -152,7 +153,9 @@ pub fn init_page() -> ! {
     let init_off = p_alloc(PCB_PAGES, true).unwrap();
     // init process
     // since we not paged memory, we cannot access 0xc0500000
-    let init = PCB::new("init", 0xff, init_off);
+    let init = PCB::new(crate::_start,  "init", 0xff, init_off);
+    // init thread is already running
+    *init.status_mut() = Status::Running;
     let new_stack = OS_MEM_OFF + init.stack();
 
     crate::asm::page_jmp(PDE_START, new_stack, KERNEL_ENTRY);

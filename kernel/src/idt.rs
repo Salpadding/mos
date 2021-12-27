@@ -38,7 +38,7 @@ pub static EXCEPTIONS: &[&'static str] = &[
 
 // if return 0, recover from interrupt
 // else switch current stack to another stack
-extern "C" fn int_entry() -> u32 {
+extern "C" fn int_entry() {
     let vec = crate::asm::asm_buf()[0];
 
     if vec < 20 {
@@ -46,19 +46,19 @@ extern "C" fn int_entry() -> u32 {
         loop {}
     }
 
-    if (vec as usize) < ENTRY_SIZE {
-        unsafe {
-            let f = HANDLERS[vec as usize];
-            if f == 0 {
-                return 0;
-            }
+    if (vec as usize) >= ENTRY_SIZE {
+        return;
+    }
 
-            let f: fn() -> u32 = core::mem::transmute(f);
-            return f();
+    unsafe {
+        let f = HANDLERS[vec as usize];
+        if f == 0 {
+            return;
         }
-    };
 
-    0
+        let f: fn() -> u32 = core::mem::transmute(f);
+        f();
+    }
 }
 
 pub fn int_enabled() -> bool {
@@ -66,7 +66,7 @@ pub fn int_enabled() -> bool {
     e_flags & E_FLAGS_IF != 0
 }
 
-pub fn register(vec: u16, handle: fn() -> u32 ) {
+pub fn register(vec: u16, handle: fn()) {
     unsafe {
         HANDLERS[vec as usize] = handle as usize;
     }
@@ -75,28 +75,18 @@ pub fn register(vec: u16, handle: fn() -> u32 ) {
 fn idt() -> &'static mut [GateBits] {
     unsafe {
         let pp = IDT.as_ptr() as usize;
-        core::slice::from_raw_parts_mut(
-            pp as *mut _,
-            ENTRY_SIZE,
-        )
+        core::slice::from_raw_parts_mut(pp as *mut _, ENTRY_SIZE)
     }
 }
 
 /// interrupt entries, cpu exception -> assembly code -> rust entry
 fn int_entries() -> &'static [u32] {
-    unsafe {
-        core::slice::from_raw_parts(
-            crate::asm::int_entries() as *const _,
-            ENTRY_SIZE,
-        )
-    }
+    unsafe { core::slice::from_raw_parts(crate::asm::int_entries() as *const _, ENTRY_SIZE) }
 }
 
 /// location to register interrupt handler
 fn int_rust() -> &'static mut u32 {
-    unsafe {
-        &mut *(crate::asm::int_rust() as *mut _)
-    }
+    unsafe { &mut *(crate::asm::int_rust() as *mut _) }
 }
 
 pub fn init() {
@@ -119,9 +109,7 @@ pub fn init() {
     init_pic();
 
     // 5. call lidt
-    unsafe {
-        crate::asm::lidt((&IDT_PTR) as *const _ as usize)
-    }
+    unsafe { crate::asm::lidt((&IDT_PTR) as *const _ as usize) }
 }
 
 const PIC_M_CTRL: u16 = 0x20;
@@ -136,7 +124,6 @@ fn init_pic() {
     out_b(PIC_M_DATA, 0x20);
     out_b(PIC_M_DATA, 0x04);
     out_b(PIC_M_DATA, 0x01);
-
 
     out_b(PIC_S_CTRL, 0x11);
     out_b(PIC_S_DATA, 0x28);
@@ -156,7 +143,6 @@ fn init_idt() {
         t[i] = GateBits::new(entries[i], IDT_DESC_ATTR_DPL0)
     }
 }
-
 
 #[repr(packed)]
 struct IdtPtr {
@@ -185,4 +171,3 @@ impl GateBits {
         }
     }
 }
-

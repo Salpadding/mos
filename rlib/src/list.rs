@@ -69,11 +69,11 @@ impl List {
         self.tail.set_prev(&self.head);
     }
 
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.head.next == &self.tail as *const _ as usize
     }
 
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         let mut l = 0usize;
 
         self.traverse(|x| -> bool {
@@ -94,9 +94,8 @@ impl List {
     }
 
     pub fn pop_head(&mut self) -> Option<&'static mut Node> {
-        let n = self.head.next();
-
-        if n.is_none() { None } else {
+        if self.is_empty() { None } else {
+            let n = self.head.next();
             let m = n.unwrap();
             m.detach();
             Some(m)

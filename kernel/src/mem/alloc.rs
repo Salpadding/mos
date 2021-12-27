@@ -78,5 +78,5 @@ pub fn pg_alloc(p: Pool, pages: usize) -> Result<usize, SE> {
         map_page(v_start + i * PAGE_SIZE, p_a, 7, false, true)?;
     }
 
-    Err("")
+    Ok(v_start)
 }

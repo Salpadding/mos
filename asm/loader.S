@@ -170,20 +170,6 @@ start:
 
 [bits 32]
 switch_to:
-    push esi
-    push edi
-    push ebx
-    push ebp
-
-    mov  eax, [asm_buf]
-    mov  [eax], esp
-    mov  eax, [asm_buf + 4]
-    mov  esp, [eax]
-
-    pop  ebp
-    pop  ebx
-    pop  edi
-    pop  esi
     ret
 p_mode_start:
     ; initialize data, stack base
@@ -252,8 +238,6 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
    ; eflags
    pop dword [reg_ctx + 12]
 
-   mov [int_esp_0], esp
-
    ; 如果是从片上进入的中断,除了往从片上发送EOI外,还要往主片上发送EOI
    mov al,0x20                   ; 中断结束命令EOI
    out 0xa0,al                   ; 向从片发送
@@ -278,11 +262,7 @@ int_exit:
    pop ds
    popad
 
-   cmp dword [asm_buf], 1
-   jz  .sw
-
-   mov esp, [int_esp_0]
-
+   mov esp, [reg_ctx + REG_CTX_LEN * 4 - 4 * 5]
    ; eflags
    push dword [reg_ctx + 12]
    ; cs
@@ -291,14 +271,6 @@ int_exit:
    push dword [reg_ctx + 4]
 
    iretd
-.sw:
-    mov esp, [reg_ctx + REG_CTX_LEN * 4 - 4 * 3]
-    jmp $
-    nop
-    ; eip
-    push dword [reg_ctx + 4]    
-    ; perform a short jump
-    ret
 
 ; align to 4k
 ; nasm will do some magic optimize if not reserve padding

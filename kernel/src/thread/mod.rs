@@ -1,16 +1,17 @@
 use rlib::alloc_static;
-use rlib::list::List;
+use rlib::list::{List, Node};
 
-use crate::{Pool, println};
-use crate::asm::{reg_ctx, RegCtx, switch_to};
+use crate::asm::{reg_ctx, switch_to, RegCtx, REG_CTX_LEN};
 use crate::err::SE;
-use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc};
-use crate::thread::Status::Running;
+use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE};
+use crate::thread::Status::{Ready, Running};
+use crate::{println, Pool};
+
+pub type Routine = extern "C" fn();
 
 pub const PCB_PAGES: usize = 1;
 const STACK_MAGIC: u32 = 0x55aa55aa;
 pub const PCB_SIZE: usize = PCB_PAGES * PAGE_SIZE;
-
 
 static mut TICKS: u32 = 0;
 // address of switch to
@@ -30,48 +31,22 @@ macro_rules! cur_pcb {
     };
 }
 
-alloc_static!(READY_LIST, ready_list, List);
 alloc_static!(ALL_LIST, all_list, List);
 
 #[repr(u8)]
+#[derive(PartialEq)]
 pub enum Status {
-    Running,
     Ready,
-    Blocked,
-    Waiting,
-    Hanging,
-    Died,
+    Running,
 }
 
-/// interrupt stack
-#[repr(packed)]
-struct IntBlock {
-    // eax, ebx, ecx, edx, esp, ebp, esi, edi,
-    g_regs: [u32; 8],
-    // es, cs, ss, ds, fs, gs
-    s_regs: [u16; 6],
-
-    e_code: u32,
-    caller: usize,
-    cs: u16,
-    e_flags: u32,
-    esp: usize,
-    ss: usize,
-}
-
-/// thread stack
-struct ThreadBlock {
-    // ebp, ebx, edi, esi
-    regs: [u32; 4],
-    eip: usize,
-    ret: Routine,
-    rt: Routine,
-    args: usize,
-}
-
-#[repr(packed)]
+// ready -> running
+#[repr(C)]
 pub struct PCB {
-    esp: usize,
+    node: Node,
+    reg_ctx: [u32; REG_CTX_LEN],
+    rt: Routine,
+    entry: usize,
     status: Status,
     priority: u8,
     ticks: u8,
@@ -82,21 +57,23 @@ pub struct PCB {
 }
 
 impl PCB {
-    pub fn new(name: &str, priority: u8, off: usize) -> &'static mut Self {
-        let p: &'static mut PCB = unsafe {
-            core::mem::transmute(off)
-        };
-
+    pub fn new(rt: Routine, name: &str, priority: u8, off: usize) -> &'static mut Self {
+        let p: &'static mut PCB = unsafe { core::mem::transmute(off) };
         let len = p.name_buf.len().min(name.as_bytes().len());
+        p.rt = rt;
         p.name_len = len as u8;
         p.name_buf[..len].copy_from_slice(&name.as_bytes()[..len]);
         p.ticks = priority;
         p.priority = priority;
-        p.status = Running;
+        p.status = Ready;
         p.magic = STACK_MAGIC;
-        p.esp = p.stack();
 
+        println!("new eip = 0x{:08X}", p.rt as usize);
         p
+    }
+
+    pub fn status_mut(&mut self) -> &mut Status {
+        &mut self.status
     }
 
     fn overflow(&self) -> bool {
@@ -112,27 +89,8 @@ impl PCB {
         self as *const Self as usize
     }
 
-    fn int_block(&self) -> &'static mut IntBlock {
-        let p = self.off() + PCB_SIZE - core::mem::size_of::<IntBlock>();
-        unsafe { &mut *(p as *mut _) }
-    }
-
-    fn th_block(&self) -> &'static mut ThreadBlock {
-        let p = self.off() + PCB_SIZE - core::mem::size_of::<IntBlock>()
-            - core::mem::size_of::<ThreadBlock>();
-        unsafe { &mut *(p as *mut _) }
-    }
-
     pub fn stack(&self) -> usize {
-        self.off() + PCB_SIZE - core::mem::size_of::<IntBlock>()
-            - core::mem::size_of::<ThreadBlock>()
-    }
-
-    fn init(&mut self, rt: Routine, args: usize) {
-        let th_s = self.th_block();
-        th_s.eip = unsafe { kernel_thread as usize };
-        th_s.rt = rt;
-        th_s.args = args;
+        self.off() + PCB_SIZE
     }
 }
 
@@ -142,23 +100,34 @@ pub fn current_pcb() -> &'static mut PCB {
     unsafe { &mut *(p as usize as *mut _) }
 }
 
-pub type Routine = extern "C" fn(arg: usize);
-
-pub extern "C" fn kernel_thread(f: Routine, arg: usize) {
-    f(arg);
+pub fn new_thread(rt: Routine, name: &str, priority: u8) {
+    let pcb_off = pg_alloc(Pool::KERNEL, 1).unwrap();
+    let pcb = PCB::new(rt, name, priority, pcb_off);
+    all_list().append(&mut pcb.node);
 }
 
 pub fn init() {
     // init linked list
-    ready_list().init();
     all_list().init();
 
     // register handler
     crate::idt::register(0x20, schedule);
 }
 
+trait AsPCB: Sized {
+    fn cast_0(&mut self) -> &mut PCB {
+        unsafe { core::mem::transmute(self) }
+    }
+
+    fn cast_1(&mut self) -> &mut PCB {
+        unsafe { core::mem::transmute(self as *const _ as usize - core::mem::size_of::<Self>()) }
+    }
+}
+
+impl AsPCB for Node {}
+
 // process scheduler
-pub fn schedule() -> u32 {
+pub fn schedule() {
     // get current pcb
     let cur = current_pcb();
 
@@ -173,33 +142,47 @@ pub fn schedule() -> u32 {
 
     if cur.ticks != 0 {
         cur.ticks -= 1;
-        return 1;
+        return;
     }
 
-
+    cur.ticks = cur.priority;
     // switch to another thread
-    println!("tick of thread {} used", cur.name());
+    let l = all_list();
+    let h = l.pop_head();
 
-    // print register context
-
-    let ctx = reg_ctx();
-    ctx.print();
-
-    loop {}
-}
-
-pub fn start(name: &str, priority: u8, r: Routine, args: usize) -> Result<&'static mut PCB, SE> {
-    // allocate a page for process control block
-    let pcb = pg_alloc(Pool::KERNEL, PCB_PAGES)?;
-    let pcb = PCB::new(name, priority, pcb);
-    pcb.init(r, args);
-
-    unsafe {
-        asm!(
-        // reset esp
-        "mov esp, {}",
-        in(reg) pcb.stack()
-        );
+    if h.is_none() {
+        return;
     }
-    Ok(pcb)
+
+    let h = h.unwrap();
+
+    // save ctx
+    let ctx = reg_ctx();
+
+    // println!("ctx eip = 0x{:08X}", *ctx.eip());
+    cur.reg_ctx.copy_from_slice(ctx);
+
+    l.append(&mut cur.node);
+
+    let p: &mut PCB = h.cast_0();
+
+    // println!("cur thread name = {}", cur.name());
+    // println!("next thread name = {}", p.name());
+
+    if p.status == Ready {
+        p.reg_ctx.copy_from_slice(ctx);
+        p.reg_ctx.reset_general();
+        // println!("eip = 0x{:08X}", p.reg_ctx.eip());
+        *p.reg_ctx.eip() = p.rt as usize as u32;
+        // println!("eip = 0x{:08X}", p.reg_ctx.eip());
+        *p.reg_ctx.esp() = p.stack() as u32;
+        *p.reg_ctx.ebp() = p.stack() as u32;
+        p.status = Running;
+    }
+
+    // restore context
+    println!("eip = 0x{:08X}", ctx.eip());
+    println!("eip = 0x{:08X}", p.reg_ctx.eip());
+    ctx.copy_from_slice(&p.reg_ctx);
+    println!("eip = 0x{:08X}", ctx.eip());
 }
