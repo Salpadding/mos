@@ -29,5 +29,6 @@ macro_rules! alloc_statics {
 
 pub mod bitmap;
 pub mod list;
+mod link;
 
 pub type Ref<T> = &'static mut T;
