@@ -21,7 +21,6 @@ pub const BUF_UPPER_BOUND: usize = 0x80000;
 
 static mut PD_USED: usize = 0;
 
-
 fn page_dir() -> PageTable {
     unsafe { core::slice::from_raw_parts_mut(PDE_START as *mut _, PT_LEN) }
 }
@@ -76,7 +75,7 @@ impl PageTableEntry {
 }
 
 // allocate pages before setup page
-pub fn p_alloc(pages: usize, init: bool) -> Result<usize, SE> {
+pub fn static_alloc(pages: usize, init: bool) -> Result<usize, SE> {
     let off = unsafe { PDE_START + PT_SIZE + PD_USED * PT_SIZE };
     let avl = (BUF_UPPER_BOUND - off) / PAGE_SIZE;
     if avl < pages {
@@ -103,7 +102,7 @@ pub fn map_page(v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Res
     if !pd[pde_i].exists() {
         let k = kernel_pool();
         let buf = if alloc { k.p_alloc(true)? } else {
-            p_alloc(1, true)?
+            static_alloc(1, true)?
         };
         if trace {
             println!("create buf 0x{:08X}", buf);
@@ -145,15 +144,11 @@ pub fn init_page() -> ! {
         map_page(OS_MEM_OFF + i * PAGE_SIZE, i * PAGE_SIZE, 7, false, false).unwrap();
     }
 
-    let esp: usize;
-    unsafe {
-        asm!("mov {}, esp", out(reg) esp);
-    }
-
-    let init_off = p_alloc(PCB_PAGES, true).unwrap();
+    let init_off = static_alloc(PCB_PAGES, true).unwrap();
     // init process
     // since we not paged memory, we cannot access 0xc0500000
     let init = PCB::new(unsafe { core::mem::transmute(crate::_start as usize) }, "init", 0xff, init_off);
+
     // init thread is already running
     *init.status_mut() = Status::Running;
     let new_stack = OS_MEM_OFF + init.stack();

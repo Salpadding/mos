@@ -1,5 +1,3 @@
-use core::task::ready;
-
 use rlib::alloc_static;
 use rlib::link::LinkedList;
 

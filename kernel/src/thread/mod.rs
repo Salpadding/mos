@@ -2,7 +2,7 @@ use rlib::alloc_static;
 use rlib::link::{LinkedList, Node};
 
 use crate::{Pool, println};
-use crate::asm::{IntCtx, reg_ctx, REG_CTX_LEN, switch_to};
+use crate::asm::{IntCtx, reg_ctx, REG_CTX_LEN};
 use crate::err::SE;
 use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc};
 use crate::thread::data::all;

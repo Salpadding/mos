@@ -2,7 +2,7 @@ pub use {alloc::pg_alloc, alloc::Pool, page::init_page, page::page_enabled};
 use rlib::bitmap::Bitmap;
 
 use crate::{asm, println};
-use crate::mem::page::{p_alloc, PDE_START, PT_SIZE, RESERVED_MEM};
+use crate::mem::page::{PDE_START, PT_SIZE, RESERVED_MEM, static_alloc};
 
 mod page;
 mod alloc;
@@ -61,7 +61,7 @@ fn v_pool() -> &'static mut VPool {
 fn bit_map() -> &'static mut [u8] {
     unsafe {
         if BIT_MAP == 0 {
-            BIT_MAP = p_alloc(BIT_MAP_SIZE / PAGE_SIZE, true).unwrap();
+            BIT_MAP = static_alloc(BIT_MAP_SIZE / PAGE_SIZE, true).unwrap();
         }
         core::slice::from_raw_parts_mut(
             BIT_MAP as *mut _,
@@ -89,10 +89,12 @@ pub fn debug() {
 
 pub fn init() {
     unsafe {
-        BUF = p_alloc(1, true).unwrap();
+        BUF = static_alloc(1, true).unwrap();
     }
 
-    assert!(core::mem::align_of::<PagePool>() < BUF_ST_SIZE, "align_of page pool");
+    assert!(core::mem::size_of::<PagePool>() < BUF_ST_SIZE, "size of page pool");
+    assert!(core::mem::size_of::<VPool>() < BUF_ST_SIZE, "size of v pool");
+
     // initialize kernel area and bit map
     fill_zero(RESERVED_MEM, KERNEL_MEM);
 

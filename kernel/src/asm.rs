@@ -1,7 +1,5 @@
-use crate::asm::methods::LIDT;
 use crate::println;
 
-// loader off + pad + gdt
 pub const ASM_BUF_OFF: usize = 4096;
 pub const ASM_BUF_LEN: usize = 64;
 pub const REG_CTX_LEN: usize = ASM_BUF_LEN;
@@ -74,18 +72,18 @@ pub trait IntCtx {
 }
 
 impl IntCtx for [u32] {
-    mx!(eax, REG_CTX_LEN - 1);
-    mx!(ecx, REG_CTX_LEN - 2);
-    mx!(edx, REG_CTX_LEN - 3);
-    mx!(ebx, REG_CTX_LEN - 4);
-    mx!(esp, REG_CTX_LEN - 5);
-    mx!(ebp, REG_CTX_LEN - 6);
-    mx!(esi, REG_CTX_LEN - 7);
-    mx!(edi, REG_CTX_LEN - 8);
-    mx!(ds, REG_CTX_LEN - 9);
-    mx!(es, REG_CTX_LEN - 10);
-    mx!(fs, REG_CTX_LEN - 11);
-    mx!(gs, REG_CTX_LEN - 12);
+    mx!(eax, ASM_BUF_LEN - 1);
+    mx!(ecx, ASM_BUF_LEN - 2);
+    mx!(edx, ASM_BUF_LEN - 3);
+    mx!(ebx, ASM_BUF_LEN - 4);
+    mx!(esp, ASM_BUF_LEN - 5);
+    mx!(ebp, ASM_BUF_LEN - 6);
+    mx!(esi, ASM_BUF_LEN - 7);
+    mx!(edi, ASM_BUF_LEN - 8);
+    mx!(ds, ASM_BUF_LEN - 9);
+    mx!(es, ASM_BUF_LEN - 10);
+    mx!(fs, ASM_BUF_LEN - 11);
+    mx!(gs, ASM_BUF_LEN - 12);
 
     mx!(cs, 3);
     mx!(eip, 2);
@@ -94,7 +92,7 @@ impl IntCtx for [u32] {
     mx!(vec, 0);
 
     fn reset_general(&mut self) {
-        self[REG_CTX_LEN - 8..REG_CTX_LEN].fill(0);
+        self[ASM_BUF_LEN - 8..ASM_BUF_LEN].fill(0);
     }
 }
 
@@ -121,24 +119,10 @@ pub fn asm_api() -> AsmApi {
 }
 
 mod methods {
-    pub const ECHO: u32 = 0;
-    pub const GDT_PTR: u32 = 1;
-    pub const LIDT: u32 = 2;
-    pub const PAGE_ENABLED: u32 = 3;
-    pub const PAGE_SETUP: u32 = 4;
-    pub const INT_ENTRIES_OFF: u32 = 5;
-    pub const INT_RUST_OFF: u32 = 6;
-    // division by assembly
-    pub const DIV: u32 = 7;
-    pub const CALLER: u32 = 8;
-    pub const OUT_B: u32 = 9;
-    pub const OUT_SW: u32 = 10;
-    pub const IN_B: u32 = 11;
-    pub const IN_SW: u32 = 12;
-    pub const STI: u32 = 13;
-    pub const MEM_SZ: u32 = 14;
-    pub const SWITCH_TO: u32 = 15;
-    pub const REG_CTX: u32 = 16;
+    pub const GDT_PTR: u32 = 0;
+    pub const INT_ENTRIES_OFF: u32 = 1;
+    pub const INT_RUST_OFF: u32 = 2;
+    pub const MEM_SZ: u32 = 3;
 }
 
 fn api_call(method: u32, args: &[u32]) -> u32 {
@@ -193,10 +177,6 @@ pub fn in_sw(port: u16, buf: &mut [u16]) {
     }
 }
 
-pub fn echo(x: u32) -> u32 {
-    api_call(methods::ECHO, &[x])
-}
-
 pub fn gdt() -> &'static mut GdtPtr {
     let p = api_call(methods::GDT_PTR, &[]);
     unsafe { &mut *(p as *mut _) }
@@ -234,14 +214,6 @@ pub fn int_rust() -> usize {
     api_call(methods::INT_RUST_OFF, &[]) as usize
 }
 
-pub fn div(x: u32, y: u32) -> u32 {
-    api_call(methods::DIV, &[x, y])
-}
-
-pub fn caller() -> u32 {
-    api_call(methods::CALLER, &[])
-}
-
 pub fn sti() {
     unsafe { asm!("sti"); }
 }
@@ -250,13 +222,6 @@ pub fn cli() {
     unsafe { asm!("cli"); }
 }
 
-pub fn switch_to() -> usize {
-    api_call(methods::SWITCH_TO, &[]) as usize
-}
-
-pub fn reg_ctx_off() -> usize {
-    api_call(methods::REG_CTX, &[]) as usize
-}
 
 #[repr(packed)]
 pub struct GdtPtr {

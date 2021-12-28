@@ -23,28 +23,16 @@ asm_buf:
 ; loader_api, 1 = gdt_ptr, 2 = lidt, 3 = page enabled?
 asm_api:
     mov eax, [asm_buf]
-    cmp eax, 0
-    jz .echo
     ; gdt ptr
-    cmp eax, 1
+    cmp eax, 0
     jz .gdt
-    cmp eax, 5
+    cmp eax, 1
     jz .int_entries
-    cmp eax, 6
+    cmp eax, 2
     jz .int_rust
-    cmp eax, 7
-    jz .div
-    cmp eax, 8
-    jz .caller
-    cmp eax, 14
+    cmp eax, 3
     jz .mem_sz
-    cmp eax, 15
-    jz .switch_to
     mov eax, 0
-    ret
-.echo:
-    mov eax, [asm_buf + 4]
-    mov [asm_buf], eax
     ret
 .gdt:
     mov dword [asm_buf], gdt_ptr
@@ -55,36 +43,8 @@ asm_api:
 .int_rust:
     mov dword [asm_buf], int_rust
     ret
-.div:
-    mov edx, 0
-    mov eax, [asm_buf + 4]
-    div dword [asm_buf + 8]
-    mov [asm_buf], eax
-    ret
-.caller:
-    mov eax, [esp]
-    mov [asm_buf], eax
-    ret
-.outsw:
-    cld
-    mov edx, [asm_buf + 4]
-    mov ecx, [asm_buf + 12]
-    mov esi, [asm_buf + 8]
-    rep outsw
-    ret
-.insw:
-    cld
-    mov edx, [asm_buf + 4]
-    mov ecx, [asm_buf + 12]
-    mov edi, [asm_buf + 8]
-    rep insw
-    ret
 .mem_sz:
     mov eax, [mem_sz],
-    mov [asm_buf], eax
-    ret
-.switch_to:
-    mov eax, switch_to
     mov [asm_buf], eax
     ret
 mem_sz:
@@ -149,8 +109,6 @@ start:
 
     cli
 
-    ; setup gdt
-
     ; load gdt
     lgdt [gdt_ptr]
 
@@ -159,13 +117,10 @@ start:
     or eax, 1
     mov cr0, eax
 
-
     ; set cs = gdt[1], ip = p_mode_start
     jmp SELECTOR_CODE:p_mode_start
 
 [bits 32]
-switch_to:
-    ret
 p_mode_start:
     ; initialize data, stack base
     mov ax, SELECTOR_DATA
@@ -180,13 +135,11 @@ p_mode_start:
 
     jmp SELECTOR_CODE:KERNEL_ENTRY
 
-
 ; store esp temporary in isr
 int_esp_0:
     dd 0
 int_esp_1:
     dd 0
-
 
 %define ERROR_CODE nop		 ; 若在相关的异常中cpu已经自动压入了错误码,为保持栈中格式统一,这里不做操作.
 %define ZERO push dword 0		 ; 若在相关的异常中cpu没有压入错误码,为了统一栈中格式,就手工压入一个0
@@ -340,4 +293,4 @@ int_exit:
 
 ; align to 4k
 ; nasm will do some magic optimize if not reserve padding
-times 12*1024 - ($ - $$) db 0 
+times 10*1024 - ($ - $$) db 0 

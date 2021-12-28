@@ -10,7 +10,6 @@
 
 use core::panic::PanicInfo;
 
-use crate::asm::switch_to;
 use crate::mem::Pool;
 
 // see https://docs.rust-embedded.org/embedonomicon/smallest-no-std.html
