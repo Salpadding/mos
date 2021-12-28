@@ -11,22 +11,6 @@ macro_rules! alloc_static {
     };
 }
 
-#[macro_export]
-macro_rules! alloc_statics {
-    ($var: ident, $f: ident, $t: ty, $cnt: expr) => {
-        static mut $var: [u8; core::mem::size_of::<$t>() * $cnt] = [0u8; core::mem::size_of::<$t>() * $cnt];
-
-        pub fn $f() -> &'static mut [$t<'static>] {
-            unsafe {
-                core::slice::from_raw_parts_mut(
-                    $var.as_ptr() as *mut _,
-                    $cnt
-                )
-            }
-        }
-    };
-}
-
 pub mod bitmap;
 pub mod list;
 pub mod link;

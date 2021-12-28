@@ -16,14 +16,14 @@ pub trait Node: Sized {
     }
 }
 
-pub struct LinkedListIter<T: Node> {
+pub struct Iter<T: Node> {
     cur: usize,
     tail: usize,
     next_i: u8,
     ph: PhantomData<T>,
 }
 
-impl<T: 'static + Node> Iterator for LinkedListIter<T> {
+impl<T: 'static + Node> Iterator for Iter<T> {
     type Item = &'static mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -55,21 +55,22 @@ impl<T: 'static + Node> LinkedList<T> {
         self.head().pointers_mut()[self.next_i as usize] = self.tail;
         self.tail().pointers_mut()[self.prev_i as usize] = self.head;
     }
-    
-    pub fn iter(&self) -> LinkedListIter<T> {
-        LinkedListIter {
-            cur: self.head,
+
+    pub fn iter(&self) -> Iter<T> {
+        let cur = self.head().pointers()[self.next_i as usize];
+        Iter {
+            cur,
             tail: self.tail,
             next_i: self.next_i,
-            ph: Default::default()
+            ph: Default::default(),
         }
     }
 
-    pub fn head(&self) -> &'static mut T {
+    fn head(&self) -> &'static mut T {
         Self::cast(self.head)
     }
 
-    pub fn tail(&self) -> &'static mut T {
+    fn tail(&self) -> &'static mut T {
         Self::cast(self.tail)
     }
 
@@ -83,18 +84,7 @@ impl<T: 'static + Node> LinkedList<T> {
     }
 
     pub fn len(&self) -> usize {
-        let mut cur = self.head;
-        let mut i = 0;
-
-        loop {
-            let c = Self::cast(cur);
-            if c.pointers()[self.next_i as usize] == self.tail {
-                break;
-            }
-            cur = c.pointers()[self.next_i as usize];
-            i += 1;
-        }
-        i
+        self.iter().count()
     }
 
     fn link_prev(&self, dst: &mut T, prev: &mut T) {
@@ -138,7 +128,7 @@ impl<T: 'static + Node> LinkedList<T> {
         }
     }
 
-    pub fn prepend(&self, dst: &mut T, n: &mut T) {
+    fn prepend(&self, dst: &mut T, n: &mut T) {
         let prev = dst.ref_at(self.prev_i as usize).unwrap();
         self.link_next(prev, n);
         self.link_prev(n, prev);
@@ -146,9 +136,29 @@ impl<T: 'static + Node> LinkedList<T> {
         self.link_prev(dst, n);
     }
 
-    pub fn append(&mut self, n: &mut T) {
+    #[inline]
+    fn assert_not_contains(&self, n: &mut T) {
         assert!(n.pointers()[self.prev_i as usize] == 0 && n.pointers()[self.next_i as usize] == 0, "node already on list");
+    }
+
+    pub fn append(&mut self, n: &mut T) {
+        self.assert_not_contains(n);
         let t = self.tail();
         self.prepend(t, n);
+    }
+
+    pub fn first(&self) -> Option<&'static mut T> {
+        if self.is_empty() { None } else { self.head().ref_at(self.next_i as usize) }
+    }
+
+    pub fn push_head(&mut self, n: &mut T) {
+        self.assert_not_contains(n);
+
+        let f = self.first();
+
+        match f {
+            Some(x) => self.prepend(x, n),
+            _ => self.prepend(self.tail(), n)
+        }
     }
 }

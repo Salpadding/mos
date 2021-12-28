@@ -88,10 +88,11 @@ pub fn debug() {
 }
 
 pub fn init() {
-    unsafe { println!("bitmap address = 0x{:08X}", bit_map().as_ptr() as usize); }
     unsafe {
         BUF = p_alloc(1, true).unwrap();
     }
+
+    assert!(core::mem::align_of::<PagePool>() < BUF_ST_SIZE, "align_of page pool");
     // initialize kernel area and bit map
     fill_zero(RESERVED_MEM, KERNEL_MEM);
 

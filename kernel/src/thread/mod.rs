@@ -1,11 +1,14 @@
+mod data;
+
 use rlib::alloc_static;
-use rlib::list::{List, Node};
+use rlib::link::{LinkedList, Node};
 
 use crate::asm::{reg_ctx, switch_to, IntCtx, REG_CTX_LEN};
 use crate::err::SE;
 use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE};
 use crate::thread::Status::{Ready, Running};
 use crate::{println, Pool};
+use crate::thread::data::all;
 
 pub type Routine = extern "C" fn();
 
@@ -31,7 +34,7 @@ macro_rules! cur_pcb {
     };
 }
 
-alloc_static!(ALL_LIST, all_list, List);
+
 
 #[repr(u8)]
 #[derive(PartialEq)]
@@ -40,10 +43,11 @@ pub enum Status {
     Running,
 }
 
+
 // ready -> running
 #[repr(C)]
 pub struct PCB {
-    node: Node,
+    pointers: [usize; 4],
     reg_ctx: [u32; REG_CTX_LEN],
     rt: Routine,
     entry: usize,
@@ -54,6 +58,16 @@ pub struct PCB {
     name_len: u8,
     name_buf: [u8; 16],
     magic: u32,
+}
+
+impl Node for PCB {
+    fn pointers_mut(&mut self) -> &mut [usize] {
+       &mut self.pointers
+    }
+
+    fn pointers(&self) -> &[usize] {
+        &self.pointers
+    }
 }
 
 impl PCB {
@@ -102,31 +116,17 @@ pub fn current_pcb() -> &'static mut PCB {
 
 pub fn new_thread(rt: Routine, name: &str, priority: u8) {
     let pcb_off = pg_alloc(Pool::KERNEL, 1).unwrap();
-    println!("pcb off = 0x{:08X}", pcb_off);
     let pcb = PCB::new(rt, name, priority, pcb_off);
-    println!("pcb new success");
-    all_list().append(&mut pcb.node);
+    all().append(pcb);
 }
 
 pub fn init() {
-    // init linked list
-    all_list().init();
+    data::init();
 
     // register handler
     crate::idt::register(0x20, schedule);
 }
 
-trait AsPCB: Sized {
-    fn cast_0(&mut self) -> &mut PCB {
-        unsafe { core::mem::transmute(self) }
-    }
-
-    fn cast_1(&mut self) -> &mut PCB {
-        unsafe { core::mem::transmute(self as *const _ as usize - core::mem::size_of::<Self>()) }
-    }
-}
-
-impl AsPCB for Node {}
 
 // process scheduler
 pub fn schedule() {
@@ -150,7 +150,7 @@ pub fn schedule() {
 
     cur.ticks = cur.priority;
     // switch to another thread
-    let l = all_list();
+    let l = all();
     let h = l.pop_head();
 
     if h.is_none() {
@@ -158,15 +158,11 @@ pub fn schedule() {
     }
 
 
-    let h = h.unwrap();
+    let p = h.unwrap();
 
     // save ctx
     let ctx = reg_ctx();
     cur.reg_ctx.copy_from_slice(ctx);
-
-    l.append(&mut cur.node);
-
-    let p: &mut PCB = h.cast_0();
 
     if p.status == Ready {
         p.reg_ctx.copy_from_slice(ctx);
