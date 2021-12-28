@@ -7,7 +7,7 @@ pub const ASM_BUF_LEN: usize = 4;
 pub const ASM_API_OFF: usize = ASM_BUF_OFF + ASM_BUF_LEN * 4;
 pub const KERNEL_ENTRY: usize = 1 << 20;
 
-pub static mut REG_CTX_OFF: usize = 0;
+static mut REG_CTX_OFF: usize = 0;
 
 type AsmApi = extern "C" fn();
 type AsmBuf = &'static mut [u32];
@@ -17,6 +17,9 @@ pub const REG_CTX_LEN: usize = 32;
 // get register context, for
 pub fn reg_ctx() -> &'static mut [u32] {
     unsafe {
+        if REG_CTX_OFF == 0 {
+            REG_CTX_OFF = reg_ctx_off();
+        }
         core::slice::from_raw_parts_mut(
             REG_CTX_OFF as *mut _,
             REG_CTX_LEN,

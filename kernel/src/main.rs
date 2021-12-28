@@ -30,17 +30,10 @@ mod vga;
 /// to the object file. I don't know why it is like this.
 #[no_mangle]
 #[link_section = ".entry"]
-pub extern "C" fn _start() {
+pub extern "C" fn _start() -> ! {
     use crate::mem::page_enabled;
+
     if !page_enabled() {
-        // load constants
-        unsafe {
-            thread::SWITCH_TO = switch_to();
-            asm::REG_CTX_OFF = asm::reg_ctx_off();
-        }
-
-        println!("init page...");
-
         // setup page, page allocator, init thread pcb, jump to _start()
         crate::mem::init_page()
     } else {

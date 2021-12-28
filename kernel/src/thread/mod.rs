@@ -169,8 +169,29 @@ pub fn schedule() {
     // println!("cur thread name = {}", cur.name());
     // println!("next thread name = {}", p.name());
 
+    let mut y: [u32; REG_CTX_LEN] = [0u32; REG_CTX_LEN];
+
+    let z: &mut [u32] = unsafe {
+        core::slice::from_raw_parts_mut(
+            0x70000usize as *mut _,
+            32
+        )
+    };
+
+    for i in 0..z.len() {
+        z[i] = 789;
+    }
+
+    y.copy_from_slice(z);
+
+    println!("{:?}", z);
+    println!("{:?}", y);
+
+    loop {}
+
     if p.status == Ready {
         p.reg_ctx.copy_from_slice(ctx);
+
         p.reg_ctx.reset_general();
         // println!("eip = 0x{:08X}", p.reg_ctx.eip());
         *p.reg_ctx.eip() = p.rt as usize as u32;
@@ -181,8 +202,8 @@ pub fn schedule() {
     }
 
     // restore context
-    println!("eip = 0x{:08X}", ctx.eip());
-    println!("eip = 0x{:08X}", p.reg_ctx.eip());
+    println!("1. eip = 0x{:08X}", p.reg_ctx.eip());
+    println!("len = {} {}", p.reg_ctx.len(), ctx.len());
     ctx.copy_from_slice(&p.reg_ctx);
-    println!("eip = 0x{:08X}", ctx.eip());
+    println!("2. eip = 0x{:08X}", ctx.eip());
 }

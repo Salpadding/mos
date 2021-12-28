@@ -10,3 +10,4 @@ rlib = {path = "../rlib"}
 
 [profile.release]
 panic = "abort"
+opt-level = 0

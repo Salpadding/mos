@@ -188,6 +188,8 @@ p_mode_start:
 
 REG_CTX_LEN equ 32
 ; register context
+
+align 32
 reg_ctx:
     times REG_CTX_LEN dd 0
 ; align to 2k
@@ -244,6 +246,12 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
    out 0x20,al                   ; 向主片发送
 
    mov  dword [asm_buf], %1
+   mov  eax, 0
+   mov  ebx, eax
+   mov  ecx, eax
+   mov  edx, eax
+   mov  esi, eax
+   mov  edi, eax
    call [int_rust]       ; call rust interrupt handler
    mov [asm_buf], eax
 

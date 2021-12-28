@@ -88,7 +88,7 @@ pub fn debug() {
 }
 
 pub fn init() {
-    unsafe { println!("bitmap address = 0x{:08X}", BIT_MAP); }
+    unsafe { println!("bitmap address = 0x{:08X}", bit_map().as_ptr() as usize); }
     unsafe {
         BUF = p_alloc(1, true).unwrap();
     }
