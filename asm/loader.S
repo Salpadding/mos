@@ -1,6 +1,8 @@
 [bits 16]
 %include "boot.inc"
 SECTION LOADER vstart=LOADER_BASE_ADDR
+ASM_BUF_OFF equ 4096
+ASM_BUF_LEN equ 256
 
 jmp start
 times 8 - ($ - $$) db 0
@@ -13,12 +15,10 @@ gdt_base:
     dq 0
 gdt_end:
 
+times ASM_BUF_OFF - LOADER_BASE_ADDR - ($ - $$) db 0
 ; 4 argument for asm_api call, 16 byte
 asm_buf:
-    dd 0
-    dd 0
-    dd 0
-    dd 0
+    times ASM_BUF_LEN db 0
 
 ; loader_api, 1 = gdt_ptr, 2 = lidt, 3 = page enabled?
 asm_api:
@@ -40,8 +40,6 @@ asm_api:
     jz .mem_sz
     cmp eax, 15
     jz .switch_to
-    cmp eax, 16
-    jz .reg_ctx
     mov eax, 0
     ret
 .echo:
@@ -88,9 +86,6 @@ asm_api:
 .switch_to:
     mov eax, switch_to
     mov [asm_buf], eax
-    ret
-.reg_ctx:
-    mov dword [asm_buf], reg_ctx
     ret
 mem_sz:
     dd 0
@@ -186,14 +181,6 @@ p_mode_start:
     jmp SELECTOR_CODE:KERNEL_ENTRY
 
 
-REG_CTX_LEN equ 32
-; register context
-
-align 32
-reg_ctx:
-    times REG_CTX_LEN dd 0
-; align to 2k
-
 ; store esp temporary in isr
 int_esp_0:
     dd 0
@@ -210,7 +197,7 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
    mov  [int_esp_0], esp ; backup esp
 
 ; 以下是保存上下文环境
-   mov  esp, reg_ctx + REG_CTX_LEN * 4
+   mov  esp, asm_buf + ASM_BUF_LEN
 
    ; save eax, ecx, edx, ebx, esp, ebp, esi, edi
    ; and ds, es, fs, gs
@@ -229,16 +216,16 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
    mov esp, [int_esp_0]
 
    ; error code
-   pop dword [reg_ctx]
+   pop dword [asm_buf + 4]
 
    ; eip
-   pop dword [reg_ctx + 4]
+   pop dword [asm_buf + 8]
 
    ; cs
-   pop dword [reg_ctx + 8]
+   pop dword [asm_buf + 12]
 
    ; eflags
-   pop dword [reg_ctx + 12]
+   pop dword [asm_buf + 16]
 
    ; 如果是从片上进入的中断,除了往从片上发送EOI外,还要往主片上发送EOI
    mov al,0x20                   ; 中断结束命令EOI
@@ -270,16 +257,16 @@ int_exit:
    pop ds
    popad
 
-   mov esp, [reg_ctx + REG_CTX_LEN * 4 - 4 * 5]
+   mov esp, [asm_buf + ASM_BUF_LEN - 4 * 5]
    ; eflags
-   push dword [reg_ctx + 12]
+   push dword [asm_buf + 16]
    ; cs
-   push dword [reg_ctx + 8]
+   push dword [asm_buf + 12]
    ; eip
-   push dword [reg_ctx + 4]
+   push dword [asm_buf + 8]
 
    iretd
 
 ; align to 4k
 ; nasm will do some magic optimize if not reserve padding
-times 8*1024 - ($ - $$) db 0 
+times 12*1024 - ($ - $$) db 0 

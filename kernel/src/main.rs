@@ -37,24 +37,40 @@ pub extern "C" fn _start() -> ! {
         // setup page, page allocator, init thread pcb, jump to _start()
         crate::mem::init_page()
     } else {
+
         // load interrupt descriptor table
         idt::init();
 
         // add main thread into list, register scheduler
         crate::thread::init();
 
+        println!("thread init success");
+
         // increase interrupt frequency
         crate::timer::init();
+        println!("timer init success");
         // enable interrupt
         asm::sti();
+        println!("sti success");
         thread::new_thread(th, "new", 255);
-        loop {}
+        println!("thread created");
+        let mut c = 5;
+        loop {
+            if c != 0 {
+                println!("main thread is running!");
+                c -= 1;
+            }
+        }
     }
 }
 
 extern "C" fn th() {
+    let mut c = 5;
     loop {
-        println!("new thread is running");
+        if c != 0 {
+            println!("new thread is running!");
+            c -= 1;
+        }
     }
 }
 

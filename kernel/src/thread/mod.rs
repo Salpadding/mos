@@ -1,7 +1,7 @@
 use rlib::alloc_static;
 use rlib::list::{List, Node};
 
-use crate::asm::{reg_ctx, switch_to, RegCtx, REG_CTX_LEN};
+use crate::asm::{reg_ctx, switch_to, IntCtx, REG_CTX_LEN};
 use crate::err::SE;
 use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE};
 use crate::thread::Status::{Ready, Running};
@@ -102,7 +102,9 @@ pub fn current_pcb() -> &'static mut PCB {
 
 pub fn new_thread(rt: Routine, name: &str, priority: u8) {
     let pcb_off = pg_alloc(Pool::KERNEL, 1).unwrap();
+    println!("pcb off = 0x{:08X}", pcb_off);
     let pcb = PCB::new(rt, name, priority, pcb_off);
+    println!("pcb new success");
     all_list().append(&mut pcb.node);
 }
 
@@ -145,6 +147,7 @@ pub fn schedule() {
         return;
     }
 
+
     cur.ticks = cur.priority;
     // switch to another thread
     let l = all_list();
@@ -154,56 +157,27 @@ pub fn schedule() {
         return;
     }
 
+
     let h = h.unwrap();
 
     // save ctx
     let ctx = reg_ctx();
-
-    // println!("ctx eip = 0x{:08X}", *ctx.eip());
     cur.reg_ctx.copy_from_slice(ctx);
 
     l.append(&mut cur.node);
 
     let p: &mut PCB = h.cast_0();
 
-    // println!("cur thread name = {}", cur.name());
-    // println!("next thread name = {}", p.name());
-
-    let mut y: [u32; REG_CTX_LEN] = [0u32; REG_CTX_LEN];
-
-    let z: &mut [u32] = unsafe {
-        core::slice::from_raw_parts_mut(
-            0x70000usize as *mut _,
-            32
-        )
-    };
-
-    for i in 0..z.len() {
-        z[i] = 789;
-    }
-
-    y.copy_from_slice(z);
-
-    println!("{:?}", z);
-    println!("{:?}", y);
-
-    loop {}
-
     if p.status == Ready {
         p.reg_ctx.copy_from_slice(ctx);
 
         p.reg_ctx.reset_general();
-        // println!("eip = 0x{:08X}", p.reg_ctx.eip());
         *p.reg_ctx.eip() = p.rt as usize as u32;
-        // println!("eip = 0x{:08X}", p.reg_ctx.eip());
         *p.reg_ctx.esp() = p.stack() as u32;
         *p.reg_ctx.ebp() = p.stack() as u32;
         p.status = Running;
     }
 
     // restore context
-    println!("1. eip = 0x{:08X}", p.reg_ctx.eip());
-    println!("len = {} {}", p.reg_ctx.len(), ctx.len());
     ctx.copy_from_slice(&p.reg_ctx);
-    println!("2. eip = 0x{:08X}", ctx.eip());
 }

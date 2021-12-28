@@ -2,29 +2,18 @@ use crate::asm::methods::LIDT;
 use crate::println;
 
 // loader off + pad + gdt
-pub const ASM_BUF_OFF: usize = 0x800 + 8 + 32;
-pub const ASM_BUF_LEN: usize = 4;
+pub const ASM_BUF_OFF: usize = 4096;
+pub const ASM_BUF_LEN: usize = 64;
+pub const REG_CTX_LEN: usize = ASM_BUF_LEN;
 pub const ASM_API_OFF: usize = ASM_BUF_OFF + ASM_BUF_LEN * 4;
 pub const KERNEL_ENTRY: usize = 1 << 20;
-
-static mut REG_CTX_OFF: usize = 0;
 
 type AsmApi = extern "C" fn();
 type AsmBuf = &'static mut [u32];
 
-pub const REG_CTX_LEN: usize = 32;
-
 // get register context, for
 pub fn reg_ctx() -> &'static mut [u32] {
-    unsafe {
-        if REG_CTX_OFF == 0 {
-            REG_CTX_OFF = reg_ctx_off();
-        }
-        core::slice::from_raw_parts_mut(
-            REG_CTX_OFF as *mut _,
-            REG_CTX_LEN,
-        )
-    }
+    asm_buf()
 }
 
 macro_rules! ix {
@@ -41,7 +30,7 @@ macro_rules! mx {
     };
 }
 
-pub trait RegCtx {
+pub trait IntCtx {
     ix!(eax);
     ix!(ebx);
     ix!(ecx);
@@ -58,6 +47,7 @@ pub trait RegCtx {
     ix!(eip);
     ix!(err_code);
     ix!(e_flags);
+    ix!(vec);
 
     fn reset_general(&mut self);
 
@@ -83,7 +73,7 @@ pub trait RegCtx {
     }
 }
 
-impl RegCtx for [u32] {
+impl IntCtx for [u32] {
     mx!(eax, REG_CTX_LEN - 1);
     mx!(ecx, REG_CTX_LEN - 2);
     mx!(edx, REG_CTX_LEN - 3);
@@ -97,10 +87,11 @@ impl RegCtx for [u32] {
     mx!(fs, REG_CTX_LEN - 11);
     mx!(gs, REG_CTX_LEN - 12);
 
-    mx!(cs, 2);
-    mx!(eip, 1);
-    mx!(err_code, 0);
-    mx!(e_flags, 3);
+    mx!(cs, 3);
+    mx!(eip, 2);
+    mx!(err_code, 1);
+    mx!(e_flags, 4);
+    mx!(vec, 0);
 
     fn reset_general(&mut self) {
         self[REG_CTX_LEN-8..REG_CTX_LEN].fill(0);
