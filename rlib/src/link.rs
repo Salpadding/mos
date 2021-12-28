@@ -16,6 +16,28 @@ pub trait Node: Sized {
     }
 }
 
+pub struct LinkedListIter<T: Node> {
+    cur: usize,
+    tail: usize,
+    next_i: u8,
+    ph: PhantomData<T>,
+}
+
+impl<T: 'static + Node> Iterator for LinkedListIter<T> {
+    type Item = &'static mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cur == self.tail {
+            None
+        } else {
+            let c: &'static mut T = LinkedList::cast(self.cur);
+            self.cur = c.pointers()[self.next_i as usize];
+            Some(c)
+        }
+    }
+}
+
+#[derive(Default)]
 pub struct LinkedList<T: Node> {
     prev_i: u8,
     next_i: u8,
@@ -32,6 +54,15 @@ impl<T: 'static + Node> LinkedList<T> {
         self.tail = tail as *const _ as usize;
         self.head().pointers_mut()[self.next_i as usize] = self.tail;
         self.tail().pointers_mut()[self.prev_i as usize] = self.head;
+    }
+    
+    pub fn iter(&self) -> LinkedListIter<T> {
+        LinkedListIter {
+            cur: self.head,
+            tail: self.tail,
+            next_i: self.next_i,
+            ph: Default::default()
+        }
     }
 
     pub fn head(&self) -> &'static mut T {
