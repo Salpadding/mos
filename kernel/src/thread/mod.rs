@@ -1,14 +1,14 @@
-mod data;
-
 use rlib::alloc_static;
 use rlib::link::{LinkedList, Node};
 
-use crate::asm::{reg_ctx, switch_to, IntCtx, REG_CTX_LEN};
+use crate::{Pool, println};
+use crate::asm::{IntCtx, reg_ctx, REG_CTX_LEN, switch_to};
 use crate::err::SE;
-use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE};
-use crate::thread::Status::{Ready, Running};
-use crate::{println, Pool};
+use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc};
 use crate::thread::data::all;
+use crate::thread::Status::{Ready, Running};
+
+mod data;
 
 pub type Routine = extern "C" fn();
 
@@ -62,7 +62,7 @@ pub struct PCB {
 
 impl Node for PCB {
     fn pointers_mut(&mut self) -> &mut [usize] {
-       &mut self.pointers
+        &mut self.pointers
     }
 
     fn pointers(&self) -> &[usize] {

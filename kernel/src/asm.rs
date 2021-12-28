@@ -94,7 +94,7 @@ impl IntCtx for [u32] {
     mx!(vec, 0);
 
     fn reset_general(&mut self) {
-        self[REG_CTX_LEN-8..REG_CTX_LEN].fill(0);
+        self[REG_CTX_LEN - 8..REG_CTX_LEN].fill(0);
     }
 }
 
