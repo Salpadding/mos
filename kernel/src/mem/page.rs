@@ -147,12 +147,13 @@ pub fn init_page() -> ! {
     let init_off = static_alloc(PCB_PAGES, true).unwrap();
     // init process
     // since we not paged memory, we cannot access 0xc0500000
-    let init = PCB::new(unsafe { core::mem::transmute(crate::_start as usize) }, "init", 0xff, init_off);
+    let init = PCB::new(unsafe { core::mem::transmute(crate::_start as usize) }, "init", 1, init_off);
 
     // init thread is already running
     *init.status_mut() = Status::Running;
     let new_stack = OS_MEM_OFF + init.stack();
 
-    crate::asm::page_jmp(PDE_START, new_stack, KERNEL_ENTRY);
+    println!("new stack = 0x{:08X}", new_stack);
+    crate::asm::page_jmp(PDE_START, new_stack, OS_MEM_OFF + KERNEL_ENTRY);
     loop {}
 }

@@ -1,7 +1,7 @@
 use rlib::alloc_static;
 use rlib::link::{LinkedList, Node};
 
-use crate::{Pool, println};
+use crate::{Pool, print, println};
 use crate::asm::{IntCtx, reg_ctx, REG_CTX_LEN};
 use crate::err::SE;
 use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc};
@@ -50,7 +50,6 @@ pub struct PCB {
     pointers: [usize; 4],
     reg_ctx: [u32; REG_CTX_LEN],
     rt: Routine,
-    entry: usize,
     status: Status,
     priority: u8,
     ticks: u8,
@@ -72,8 +71,9 @@ impl Node for PCB {
 
 impl PCB {
     pub fn new(rt: Routine, name: &str, priority: u8, off: usize) -> &'static mut Self {
-        let p: &'static mut PCB = unsafe { core::mem::transmute(off) };
+        let p: &'static mut PCB = cst!(off);
         let len = p.name_buf.len().min(name.as_bytes().len());
+
         p.rt = rt;
         p.name_len = len as u8;
         p.name_buf[..len].copy_from_slice(&name.as_bytes()[..len]);
@@ -81,8 +81,6 @@ impl PCB {
         p.priority = priority;
         p.status = Ready;
         p.magic = STACK_MAGIC;
-
-        println!("new eip = 0x{:08X}", p.rt as usize);
         p
     }
 
@@ -111,7 +109,7 @@ impl PCB {
 // get current process control block
 pub fn current_pcb() -> &'static mut PCB {
     let p = cur_pcb!();
-    unsafe { &mut *(p as usize as *mut _) }
+    cst!(p)
 }
 
 pub fn new_thread(rt: Routine, name: &str, priority: u8) {
@@ -127,11 +125,16 @@ pub fn init() {
     crate::idt::register(0x20, schedule);
 }
 
-
 // process scheduler
 pub fn schedule() {
     // get current pcb
     let cur = current_pcb();
+    // save ctx
+    let ctx = reg_ctx();
+
+    ctx.print();
+
+    bk!();
 
     // check if overflow
     assert!(!cur.overflow(), "stack of thread {} overflow!", cur.name());
@@ -147,7 +150,6 @@ pub fn schedule() {
         return;
     }
 
-
     cur.ticks = cur.priority;
     // switch to another thread
     let l = all();
@@ -160,13 +162,11 @@ pub fn schedule() {
 
     let p = h.unwrap();
 
-    // save ctx
-    let ctx = reg_ctx();
     cur.reg_ctx.copy_from_slice(ctx);
+
 
     if p.status == Ready {
         p.reg_ctx.copy_from_slice(ctx);
-
         p.reg_ctx.reset_general();
         *p.reg_ctx.eip() = p.rt as usize as u32;
         *p.reg_ctx.esp() = p.stack() as u32;
@@ -176,4 +176,6 @@ pub fn schedule() {
 
     // restore context
     ctx.copy_from_slice(&p.reg_ctx);
+
+    bk!();
 }

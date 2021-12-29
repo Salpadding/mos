@@ -194,15 +194,11 @@ pub fn page_jmp(pde_start: usize, new_stack: usize, cb: usize) {
         let mut cr0: u32;
         asm!("mov {}, cr0", out(reg) cr0);
         cr0 |= 1 << 31;
-        asm!(
-        "mov cr3, {0}",
-        "mov ebp, {1}",
-        "mov esp, ebp",
-        in(reg) pde_start,
-        in(reg) new_stack
-        );
+        asm!("mov cr3, {0}", in(reg) pde_start);
         asm!("mov cr0, {}", in(reg) cr0);
-        asm!("jmp {}", in(reg) cb);
+        asm!("mov ebp, {0}", "mov esp, ebp", in(reg) new_stack);
+        asm!("jmp {0}", in(reg) cb);
+
     }
 }
 
