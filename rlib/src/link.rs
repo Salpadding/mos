@@ -1,5 +1,4 @@
 use core::marker::PhantomData;
-use core::ops::Deref;
 
 pub trait Node: Sized {
     fn pointers_mut(&mut self) -> &mut [usize];
