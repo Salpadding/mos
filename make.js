@@ -5,7 +5,7 @@ const cp = require('child_process')
 const memOff = 0x100000
 const os = require('os')
 
-function loader() {
+function writeGDT() {
     const bin = fs.readFileSync(path.join(__dirname, 'build/loader.bin'))
     const gdt_off = 8
     const gdt_len = 4
@@ -88,7 +88,7 @@ function gd({ limit, base, rw, executable, system, mode, pri, scale_4k }) {
     return r
 }
 
-function kernel() {
+function buildKernel() {
     const cwd = process.cwd()
     process.chdir(path.join(__dirname, 'kernel'))
     cp.execSync('cargo build --release')
@@ -127,7 +127,7 @@ function kernel() {
     process.chdir(cwd)
 }
 
-function preprocess() {
+function genLoader() {
     function id(i) {
         let x = i.toString(16)
         while (x.length < 2) {
@@ -177,14 +177,14 @@ function preprocess() {
     fs.writeFileSync(path.join(__dirname, 'asm/loader.gen.S'), x + idt + vcs + y)
 }
 
-function replace_line(file, n, s) {
+function repLine(file, n, s) {
     let content = fs.readFileSync(file, 'utf8')
     let lines = content.split('\n')
     lines[n] = s
     fs.writeFileSync(file, lines.join('\n'))
 }
 
-function sectors(f) {
+function sectorsOf(f) {
     let st = fs.statSync(f)
     return Math.ceil(st.size / 512)
 }
@@ -197,23 +197,23 @@ if (!fs.existsSync(path.join(__dirname, 'build'))) {
 // set display library by platform
 switch (os.platform()) {
     case 'darwin':
-        replace_line(path.join(__dirname, 'bochsrc.txt'), 92, 'display_library: sdl2')
+        repLine(path.join(__dirname, 'bochsrc.txt'), 92, 'display_library: sdl2')
         break
     case 'win32':
-        replace_line(path.join(__dirname, 'bochsrc.txt'), 92, 'display_library: win32, options = "gui_debug"')
+        repLine(path.join(__dirname, 'bochsrc.txt'), 92, 'display_library: win32, options = "gui_debug"')
         break
 }
 
 // preprocess loader.S
-preprocess()
+genLoader()
 
 // build kernel
-kernel()
+buildKernel()
 
-const kernelSectors = sectors(path.join(__dirname, 'build/kernel.bin'))
+const kernelSectors = sectorsOf(path.join(__dirname, 'build/kernel.bin'))
 
 // replace KERNEL SECTORS macro
-replace_line(
+repLine(
     path.join(__dirname, 'asm/boot.inc'),
     4, `KERNEL_SECTORS equ ${kernelSectors}`
 )
@@ -224,9 +224,9 @@ process.chdir(path.join(__dirname, 'asm'))
 // build loader to estimate size
 cp.execSync('nasm -o ../build/loader.bin loader.gen.S')
 
-const loaderSectors = sectors(path.join(__dirname, 'build/loader.bin'))
+const loaderSectors = sectorsOf(path.join(__dirname, 'build/loader.bin'))
 
-replace_line(
+repLine(
     path.join(__dirname, 'asm/boot.inc'),
     3, `LOADER_SECTORS equ ${loaderSectors}`
 )
@@ -234,7 +234,7 @@ replace_line(
 cp.execSync('nasm -o ../build/loader.bin loader.gen.S')
 
 // write gdt
-loader()
+writeGDT()
 
 cp.execSync('nasm -o ../build/mbr.bin mbr.S')
 
