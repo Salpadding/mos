@@ -146,9 +146,6 @@ int_esp_1:
 
 %macro VECTOR 2
 int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一个中断类型一个中断处理程序，自己知道自己的中断向量号是多少
-   jmp $
-   nop
-   nop
    %2				 ; 中断若有错误码会压在eip后面
    mov  [int_esp_0], esp ; backup esp
 

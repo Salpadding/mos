@@ -198,7 +198,6 @@ pub fn page_jmp(pde_start: usize, new_stack: usize, cb: usize) {
         asm!("mov cr0, {}", in(reg) cr0);
         asm!("mov ebp, {0}", "mov esp, ebp", in(reg) new_stack);
         asm!("jmp {0}", in(reg) cb);
-
     }
 }
 

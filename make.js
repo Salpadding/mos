@@ -3,6 +3,7 @@ const fs = require('fs')
 const path = require('path')
 const cp = require('child_process')
 const memOff = 0x100000
+const os = require('os')
 
 function loader() {
     const bin = fs.readFileSync(path.join(__dirname, 'build/loader.bin'))
@@ -11,7 +12,7 @@ function loader() {
     let gdt = new BigUint64Array(bin.buffer, gdt_off, gdt_len)
 
     // code segment
-    gdt[1]  = gd({
+    gdt[1] = gd({
         limit: 0xffffffffn,
         base: 0n,
         rw: true,
@@ -22,7 +23,7 @@ function loader() {
         system: false
     })
 
-    gdt[2]  = gd({
+    gdt[2] = gd({
         limit: 0xffffffffn,
         base: 0n,
         rw: true,
@@ -33,7 +34,7 @@ function loader() {
         system: false
     })
 
-    fs.writeFileSync('build/loader.bin', bin)
+    fs.writeFileSync(path.join(__dirname, 'build/loader.bin'), bin)
 }
 
 const MODE_REAL = 0n
@@ -43,7 +44,7 @@ const MODE_LONG = 2n
 const PRI_KERNEL = 0n
 const PRI_USER = 3n
 
-function gd({limit, base, rw, executable, system, mode, pri, scale_4k }) {
+function gd({ limit, base, rw, executable, system, mode, pri, scale_4k }) {
     let lim_low = limit & 0xffffn
     let base_low = base & 0xffffn
     let base_mid = (base & 0xff0000n) >> 16n
@@ -88,6 +89,7 @@ function gd({limit, base, rw, executable, system, mode, pri, scale_4k }) {
 }
 
 function kernel() {
+    const cwd = process.cwd()
     process.chdir(path.join(__dirname, 'kernel'))
     cp.execSync('cargo build --release')
     process.chdir(__dirname)
@@ -121,16 +123,17 @@ function kernel() {
         bin.copy(newBin, vAddr - memOff, segOff, segOff + fileSz)
     }
 
-    fs.writeFileSync('build/kernel.bin', newBin)
+    fs.writeFileSync(path.join(__dirname, 'build/kernel.bin'), newBin)
+    process.chdir(cwd)
 }
 
 function preprocess() {
-    function id(i)  {
+    function id(i) {
         let x = i.toString(16)
         while (x.length < 2) {
             x = '0' + x
         }
-        return '0x'  + x
+        return '0x' + x
     }
 
 
@@ -143,8 +146,8 @@ function preprocess() {
 
     let j = 0
 
-    for(let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith(';;; IDT_CODE')){
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith(';;; IDT_CODE')) {
             console.log(`insert code at line ${i}`)
             j = i
         }
@@ -154,7 +157,7 @@ function preprocess() {
     // vector codes
     let idt = '\nint_entries:\n'
 
-    for(let i = 0; i < vector_cnt; i++) {
+    for (let i = 0; i < vector_cnt; i++) {
         idt += `   dd int_${id(i)}_entry\n`
     }
 
@@ -162,7 +165,7 @@ function preprocess() {
 
 
     let vcs = '\n'
-    for(let i = 0; i < vector_cnt; i++) {
+    for (let i = 0; i < vector_cnt; i++) {
         const err = error_vectors.indexOf(i) >= 0
         vcs += `VECTOR ${id(i)}, ${err ? 'ERROR_CODE' : 'ZERO'}\n`
     }
@@ -172,17 +175,76 @@ function preprocess() {
     let y = lines.slice(j, lines.length).join('\n')
 
     fs.writeFileSync(path.join(__dirname, 'asm/loader.gen.S'), x + idt + vcs + y)
-
 }
 
-switch (process.env.SRC) {
-    case 'kernel':
-        kernel()
+function replace_line(file, n, s) {
+    let content = fs.readFileSync(file, 'utf8')
+    let lines = content.split('\n')
+    lines[n] = s
+    fs.writeFileSync(file, lines.join('\n'))
+}
+
+function sectors(f) {
+    let st = fs.statSync(f)
+    return Math.ceil(st.size / 512)
+}
+
+// make build directory if not exists
+if (!fs.existsSync(path.join(__dirname, 'build'))) {
+    fs.mkdirSync('build')
+}
+
+// set display library by platform
+switch (os.platform()) {
+    case 'darwin':
+        replace_line(path.join(__dirname, 'bochsrc.txt'), 92, 'display_library: sdl2')
         break
-    case 'loader':
-        loader()
+    case 'win32':
+        replace_line(path.join(__dirname, 'bochsrc.txt'), 92, 'display_library: win32, options = "gui_debug"')
         break
-    case 'gen':
-        preprocess()
-        break
+}
+
+// preprocess loader.S
+preprocess()
+
+// build kernel
+kernel()
+
+const kernelSectors = sectors(path.join(__dirname, 'build/kernel.bin'))
+
+// replace KERNEL SECTORS macro
+replace_line(
+    path.join(__dirname, 'asm/boot.inc'),
+    4, `KERNEL_SECTORS equ ${kernelSectors}`
+)
+
+// change directory
+process.chdir(path.join(__dirname, 'asm'))
+
+// build loader to estimate size
+cp.execSync('nasm -o ../build/loader.bin loader.gen.S')
+
+const loaderSectors = sectors(path.join(__dirname, 'build/loader.bin'))
+
+replace_line(
+    path.join(__dirname, 'asm/boot.inc'),
+    3, `LOADER_SECTORS equ ${loaderSectors}`
+)
+
+cp.execSync('nasm -o ../build/loader.bin loader.gen.S')
+
+// write gdt
+loader()
+
+cp.execSync('nasm -o ../build/mbr.bin mbr.S')
+
+process.chdir(__dirname)
+
+
+const cmds = ['dd if=build/mbr.bin of=build/disk.img bs=512 count=1 conv=notrunc',
+    `dd if=build/loader.bin of=build/disk.img bs=512 count=${loaderSectors} seek=1 conv=notrunc`,
+    `dd if=build/kernel.bin of=build/disk.img bs=512 count=${kernelSectors} seek=${1 + loaderSectors} conv=notrunc`]
+
+for (let c of cmds) {
+    cp.execSync(c)
 }

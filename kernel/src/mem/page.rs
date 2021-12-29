@@ -1,9 +1,9 @@
 use crate::asm::KERNEL_ENTRY;
 use crate::err::SE;
-use crate::mem::{fill_zero, KERNEL_MEM, kernel_pool, PAGE_SIZE};
 use crate::mem::alloc::PAlloc;
+use crate::mem::{fill_zero, kernel_pool, KERNEL_MEM, PAGE_SIZE};
 use crate::println;
-use crate::thread::{PCB, PCB_PAGES, PCB_SIZE, Routine, Status};
+use crate::thread::{Routine, Status, PCB, PCB_PAGES, PCB_SIZE};
 
 pub const PE_SIZE: usize = 4;
 pub const PT_LEN: usize = 1024;
@@ -81,7 +81,9 @@ pub fn static_alloc(pages: usize, init: bool) -> Result<usize, SE> {
     if avl < pages {
         return Err("overflow");
     }
-    unsafe { PD_USED += pages; }
+    unsafe {
+        PD_USED += pages;
+    }
 
     if init {
         fill_zero(off, pages * PAGE_SIZE);
@@ -101,7 +103,9 @@ pub fn map_page(v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Res
     }
     if !pd[pde_i].exists() {
         let k = kernel_pool();
-        let buf = if alloc { k.p_alloc(true)? } else {
+        let buf = if alloc {
+            k.p_alloc(true)?
+        } else {
             static_alloc(1, true)?
         };
         if trace {
@@ -114,10 +118,19 @@ pub fn map_page(v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Res
 
     if trace {
         println!("pte i = {}", v.pte_i());
-        println!("sub table physical address = :{:08X}", pd[pde_i].sub_table().as_ptr() as usize);
+        println!(
+            "sub table physical address = :{:08X}",
+            pd[pde_i].sub_table().as_ptr() as usize
+        );
     }
     if pt[v.pte_i()].exists() {
-        println!("page table already exists v = 0x{:08X} p = 0x{:08X} pde_i = {}, pte_i = {}", v, p, pde_i, v.pte_i());
+        println!(
+            "page table already exists v = 0x{:08X} p = 0x{:08X} pde_i = {}, pte_i = {}",
+            v,
+            p,
+            pde_i,
+            v.pte_i()
+        );
     }
 
     pt[v.pte_i()] = PageTableEntry::new(p, flags);
@@ -126,12 +139,11 @@ pub fn map_page(v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Res
 
 static mut PAGE_ENABLED: bool = false;
 
-pub fn page_enabled() -> bool {
-    unsafe { PAGE_ENABLED }
+pub fn page_enabled() -> &'static mut bool {
+    unsafe { &mut PAGE_ENABLED }
 }
 
-pub fn init_page() -> ! {
-    unsafe { PAGE_ENABLED = true; };
+pub fn init_page() {
     // init bitmaps
     crate::mem::init();
 
@@ -147,7 +159,13 @@ pub fn init_page() -> ! {
     let init_off = static_alloc(PCB_PAGES, true).unwrap();
     // init process
     // since we not paged memory, we cannot access 0xc0500000
-    let init = PCB::new(unsafe { core::mem::transmute(crate::_start as usize) }, "init", 1, init_off);
+    let init = PCB::new(
+        unsafe { core::mem::transmute(crate::_start as usize) },
+        0,
+        "init",
+        1,
+        init_off,
+    );
 
     // init thread is already running
     *init.status_mut() = Status::Running;
@@ -155,5 +173,4 @@ pub fn init_page() -> ! {
 
     println!("new stack = 0x{:08X}", new_stack);
     crate::asm::page_jmp(PDE_START, new_stack, OS_MEM_OFF + KERNEL_ENTRY);
-    loop {}
 }

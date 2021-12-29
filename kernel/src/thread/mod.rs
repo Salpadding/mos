@@ -10,7 +10,7 @@ use crate::thread::Status::{Ready, Running};
 
 mod data;
 
-pub type Routine = extern "C" fn();
+pub type Routine = extern "C" fn(args: usize);
 
 pub const PCB_PAGES: usize = 1;
 const STACK_MAGIC: u32 = 0x55aa55aa;
@@ -34,7 +34,11 @@ macro_rules! cur_pcb {
     };
 }
 
-
+pub extern "C" fn entry() {
+    let cur = current_pcb();
+    let fun = cur.rt;
+    fun(cur.args);
+}
 
 #[repr(u8)]
 #[derive(PartialEq)]
@@ -50,6 +54,7 @@ pub struct PCB {
     pointers: [usize; 4],
     reg_ctx: [u32; REG_CTX_LEN],
     rt: Routine,
+    args: usize,
     status: Status,
     priority: u8,
     ticks: u8,
@@ -70,11 +75,12 @@ impl Node for PCB {
 }
 
 impl PCB {
-    pub fn new(rt: Routine, name: &str, priority: u8, off: usize) -> &'static mut Self {
+    pub fn new(rt: Routine, args: usize, name: &str, priority: u8, off: usize) -> &'static mut Self {
         let p: &'static mut PCB = cst!(off);
         let len = p.name_buf.len().min(name.as_bytes().len());
 
         p.rt = rt;
+        p.args = args;
         p.name_len = len as u8;
         p.name_buf[..len].copy_from_slice(&name.as_bytes()[..len]);
         p.ticks = priority;
@@ -112,9 +118,9 @@ pub fn current_pcb() -> &'static mut PCB {
     cst!(p)
 }
 
-pub fn new_thread(rt: Routine, name: &str, priority: u8) {
+pub fn new_thread(rt: Routine, args: usize, name: &str, priority: u8) {
     let pcb_off = pg_alloc(Pool::KERNEL, 1).unwrap();
-    let pcb = PCB::new(rt, name, priority, pcb_off);
+    let pcb = PCB::new(rt, args, name, priority, pcb_off);
     all().append(pcb);
 }
 
@@ -131,10 +137,6 @@ pub fn schedule() {
     let cur = current_pcb();
     // save ctx
     let ctx = reg_ctx();
-
-    ctx.print();
-
-    bk!();
 
     // check if overflow
     assert!(!cur.overflow(), "stack of thread {} overflow!", cur.name());
@@ -168,14 +170,13 @@ pub fn schedule() {
     if p.status == Ready {
         p.reg_ctx.copy_from_slice(ctx);
         p.reg_ctx.reset_general();
-        *p.reg_ctx.eip() = p.rt as usize as u32;
+        *p.reg_ctx.eip() = entry as usize as u32;
         *p.reg_ctx.esp() = p.stack() as u32;
         *p.reg_ctx.ebp() = p.stack() as u32;
         p.status = Running;
     }
 
+
     // restore context
     ctx.copy_from_slice(&p.reg_ctx);
-
-    bk!();
 }
