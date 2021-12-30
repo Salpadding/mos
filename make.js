@@ -45,15 +45,12 @@ const PRI_KERNEL = 0n
 const PRI_USER = 3n
 
 function gd({ limit, base, rw, executable, system, mode, pri, scale_4k }) {
-    let lim_low = limit & 0xffffn
-    let base_low = base & 0xffffn
-    let base_mid = (base & 0xff0000n) >> 16n
-    let base_high = (base & 0xff000000n) >> 24n
+    let g = new BigUint64Array(4)
 
-    let r = 0n
-    r = r | lim_low
-    r = r | (base_low << 16n)
-    r = r | (base_mid << 32n)
+    let base_high = (base & 0xff000000n) >> 24n
+    g[0] = limit & 0xffffn;
+    g[1] = base & 0xffffn;
+    g[2] |= (base & 0xff0000n) >> 16n
 
     let acc = 1n << 7n
     if (rw)
@@ -64,10 +61,8 @@ function gd({ limit, base, rw, executable, system, mode, pri, scale_4k }) {
         acc = acc | (1n << 4n)
 
     acc = acc | ((pri & 0x3n) << 5n)
-
-    r = r | (acc << 40n)
-
-    r = r | (((limit & 0xf0000n) >> 16n) << 48n)
+    g[2] |= acc << 8n
+    g[3] |= (limit & 0xf0000n) >> 16n
 
     let flags = 0n
     if (scale_4k)
@@ -83,9 +78,16 @@ function gd({ limit, base, rw, executable, system, mode, pri, scale_4k }) {
             flags = flags | (1n << 1n)
     }
 
-    r = r | (flags << 52n)
-    r = r | (base_high << 56n)
-    return r
+    g[3] |= flags << 4n
+    g[3] |= base_high << 8n
+
+    let gn = new Uint16Array(4)
+
+    for(let i = 0; i < 4; i++) {
+        gn[i] = Number(g[i])
+    }
+
+    return new BigUint64Array(gn.buffer)[0]
 }
 
 function buildKernel() {
@@ -95,7 +97,6 @@ function buildKernel() {
     process.chdir(__dirname)
     const bin = fs.readFileSync(path.join(__dirname, 'target/x86-unknown-bare_metal/release/kernel'))
     const newBin = Buffer.alloc(bin.length)
-
 
     // size of program header = 32 byte
     const phentsize = bin.readUInt16LE(42)
@@ -204,7 +205,7 @@ switch (os.platform()) {
         break
 }
 
-// preprocess loader.S
+// preprocess loader.S to loader.gen.S
 genLoader()
 
 // build kernel
@@ -241,9 +242,11 @@ cp.execSync('nasm -o ../build/mbr.bin mbr.S')
 process.chdir(__dirname)
 
 
-const cmds = ['dd if=build/mbr.bin of=build/disk.img bs=512 count=1 conv=notrunc',
+const cmds = [
+    'dd if=build/mbr.bin of=build/disk.img bs=512 count=1 conv=notrunc',
     `dd if=build/loader.bin of=build/disk.img bs=512 count=${loaderSectors} seek=1 conv=notrunc`,
-    `dd if=build/kernel.bin of=build/disk.img bs=512 count=${kernelSectors} seek=${1 + loaderSectors} conv=notrunc`]
+    `dd if=build/kernel.bin of=build/disk.img bs=512 count=${kernelSectors} seek=${1 + loaderSectors} conv=notrunc`
+]
 
 for (let c of cmds) {
     cp.execSync(c)
