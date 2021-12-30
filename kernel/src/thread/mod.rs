@@ -35,6 +35,7 @@ macro_rules! cur_pcb {
 }
 
 pub extern "C" fn entry() {
+    crate::asm::sti();
     let cur = current_pcb();
     let fun = cur.rt;
     fun(cur.args);
@@ -176,7 +177,7 @@ pub fn schedule() {
         p.status = Running;
     }
 
-
     // restore context
     ctx.copy_from_slice(&p.reg_ctx);
+    l.append(cur);
 }

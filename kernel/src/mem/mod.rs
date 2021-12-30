@@ -4,8 +4,8 @@ use rlib::bitmap::Bitmap;
 use crate::{asm, println};
 use crate::mem::page::{PDE_START, PT_SIZE, RESERVED_MEM, static_alloc};
 
-mod page;
 mod alloc;
+mod page;
 
 const KERNEL_MEM: usize = 3 << 20;
 pub const PAGE_SIZE: usize = 4 * 1024;
@@ -26,10 +26,10 @@ struct VPool {
 
 macro_rules! cast {
     ($t: ident, $off: expr) => {
-       unsafe {
+        unsafe {
             let p: *mut $t = (BUF + $off) as *mut _;
             &mut *p
-       }
+        }
     };
 }
 
@@ -63,11 +63,20 @@ fn bit_map() -> &'static mut [u8] {
         if BIT_MAP == 0 {
             BIT_MAP = static_alloc(BIT_MAP_SIZE / PAGE_SIZE, true).unwrap();
         }
-        core::slice::from_raw_parts_mut(
-            BIT_MAP as *mut _,
-            BIT_MAP_SIZE,
-        )
+        core::slice::from_raw_parts_mut(BIT_MAP as *mut _, BIT_MAP_SIZE)
     }
+}
+
+static mut BIT_MAP_USES: usize = 0;
+
+fn alloc_bit_map(len: usize) -> &'static mut [u8] {
+    let bits = bit_map();
+
+    let r = unsafe { &mut bits[BIT_MAP_USES..BIT_MAP_USES + len] };
+    unsafe {
+        BIT_MAP_USES += len;
+    }
+    r
 }
 
 pub fn fill_zero(start: usize, len: usize) {
@@ -83,8 +92,18 @@ pub fn debug() {
     let k = crate::mem::kernel_pool();
     let u = crate::mem::user_pool();
 
-    println!("kernel: pool size = {}M, p_start = {}M bitmap len = {}", k.size() / 1024 / 1024, k.p_start / 1024 / 1024, k.bitmap.len());
-    println!("user  : pool size = {}M, p_start = {}M bitmap len = {}", u.size() / 1024 / 1024, u.p_start / 1024 / 1024, u.bitmap.len());
+    println!(
+        "kernel: pool size = {}M, p_start = {}M bitmap len = {}",
+        k.size() / 1024 / 1024,
+        k.p_start / 1024 / 1024,
+        k.bitmap.len()
+    );
+    println!(
+        "user  : pool size = {}M, p_start = {}M bitmap len = {}",
+        u.size() / 1024 / 1024,
+        u.p_start / 1024 / 1024,
+        u.bitmap.len()
+    );
 }
 
 pub fn init() {
@@ -92,8 +111,14 @@ pub fn init() {
         BUF = static_alloc(1, true).unwrap();
     }
 
-    assert!(core::mem::size_of::<PagePool>() < BUF_ST_SIZE, "size of page pool");
-    assert!(core::mem::size_of::<VPool>() < BUF_ST_SIZE, "size of v pool");
+    assert!(
+        core::mem::size_of::<PagePool>() < BUF_ST_SIZE,
+        "size of page pool"
+    );
+    assert!(
+        core::mem::size_of::<VPool>() < BUF_ST_SIZE,
+        "size of v pool"
+    );
 
     // initialize kernel area and bit map
     fill_zero(RESERVED_MEM, KERNEL_MEM);
@@ -107,20 +132,19 @@ pub fn init() {
     let u = user_pool();
     let v = v_pool();
 
-    let m = bit_map();
-
     k.p_start = RESERVED_MEM;
-    k.bitmap = &mut m[..kernel_pages / 8];
+    k.bitmap = alloc_bit_map(kernel_pages / 8);
+
     k.total_pages = kernel_pages;
     k.avl_pages = k.total_pages;
 
     let m = bit_map();
     u.p_start = RESERVED_MEM + KERNEL_MEM;
-    u.bitmap = &mut m[kernel_pages / 8..kernel_pages / 8 + user_pages / 8];
+    u.bitmap = alloc_bit_map(user_pages / 8);
     u.total_pages = user_pages;
     u.avl_pages = u.total_pages;
 
     let m = bit_map();
-    v.bitmap = &mut m[k.bitmap.len() + u.bitmap.len()..(k.bitmap.len() + u.bitmap.len() + k.bitmap.len())];
+    v.bitmap = alloc_bit_map(kernel_pages / 8);
     v.v_start = page::OS_MEM_OFF + RESERVED_MEM;
 }
