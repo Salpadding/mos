@@ -10,12 +10,13 @@
 
 use core::panic::PanicInfo;
 
-use vga::puts;
+use vga::{puts, put_char};
 
 use crate::mem::Pool;
 
 static mut I: u64 = 0;
-const LOOP_CNT: u64 = 1 << 18;
+const LOOP_CNT: u64 = 1 << 12;
+const THREADS: u64 = 4;
 
 fn plus() {
     unsafe {
@@ -91,8 +92,8 @@ pub extern "C" fn _start() {
 
         let names = ["th0", "th1", "th2", "th3"];
 
-        for i in 0..4 {
-            thread::new_thread(th, i, names[i], 1);
+        for i in 0..THREADS {
+            thread::new_thread(th, i as usize + 1, names[i as usize], 1);
         }
 
         println!("address of I = 0x{:08X}", unsafe {
@@ -101,13 +102,17 @@ pub extern "C" fn _start() {
 
         // enable interrupt
         asm::sti();
-        loop {}
+        loop {
+            unsafe { println!("I = {} EXPECT = {}", I, LOOP_CNT * THREADS); }
+        }
     }
 }
 
 extern "C" fn th(p: usize) {
+    for _ in 0..LOOP_CNT {
+        plus();
+    }
     loop {
-        print!("0x{:02X}", p);
     }
 }
 
