@@ -8,14 +8,20 @@
 #![feature(lang_items)]
 #![feature(unchecked_math)]
 
+use core::panic::PanicInfo;
+
+use vga::{puts, put_char};
+
+use crate::mem::Pool;
+
 static mut I: u64 = 0;
-const LOOP_CNT: u64 = 1 << 18;
+const LOOP_CNT: u64 = 1 << 12;
+const THREADS: u64 = 4;
 
 fn plus() {
     unsafe {
         let mut z = I;
         z += 1;
-        asm!("nop");
         I = z;
     };
 }
@@ -45,10 +51,6 @@ macro_rules! bp {
     };
 }
 
-use core::panic::PanicInfo;
-
-use crate::mem::Pool;
-
 // see https://docs.rust-embedded.org/embedonomicon/smallest-no-std.html
 #[lang = "eh_personality"]
 #[no_mangle]
@@ -73,7 +75,6 @@ pub extern "C" fn _start() {
         // setup page, page allocator, init thread pcb, jump to _start()
         *page_enabled() = true;
         println!("init page");
-        println!("init page");
         crate::mem::init_page();
     } else {
         // load interrupt descriptor table
@@ -87,18 +88,23 @@ pub extern "C" fn _start() {
         // increase interrupt frequency
         crate::timer::init();
         println!("timer init success");
-        // enable interrupt
-        asm::sti();
         println!("sti success");
 
-        for i in 0..16 {
-            thread::new_thread(th, 0, "", 1);
+        let names = ["th0", "th1", "th2", "th3"];
+
+        for i in 0..THREADS {
+            thread::new_thread(th, i as usize + 1, names[i as usize], 1);
         }
 
         println!("address of I = 0x{:08X}", unsafe {
             &I as *const _ as usize
         });
-        loop {}
+
+        // enable interrupt
+        asm::sti();
+        loop {
+            unsafe { println!("I = {} EXPECT = {}", I, LOOP_CNT * THREADS); }
+        }
     }
 }
 
@@ -106,7 +112,8 @@ extern "C" fn th(p: usize) {
     for _ in 0..LOOP_CNT {
         plus();
     }
-    loop {}
+    loop {
+    }
 }
 
 #[panic_handler]

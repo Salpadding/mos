@@ -1,9 +1,9 @@
 use crate::asm::KERNEL_ENTRY;
 use crate::err::SE;
+use crate::mem::{fill_zero, KERNEL_MEM, kernel_pool, PAGE_SIZE};
 use crate::mem::alloc::PAlloc;
-use crate::mem::{fill_zero, kernel_pool, KERNEL_MEM, PAGE_SIZE};
 use crate::println;
-use crate::thread::{Routine, Status, PCB, PCB_PAGES, PCB_SIZE};
+use crate::thread::{PCB, PCB_PAGES, PCB_SIZE, Routine, Status};
 
 pub const PE_SIZE: usize = 4;
 pub const PT_LEN: usize = 1024;
