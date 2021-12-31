@@ -5,8 +5,13 @@ const cp = require('child_process')
 const memOff = 0x100000
 const os = require('os')
 
+// resolve path
+function rs(s) {
+    return path.join(__dirname, s)
+}
+
 function writeGDT() {
-    const bin = fs.readFileSync(path.join(__dirname, 'build/loader.bin'))
+    const bin = fs.readFileSync(rs('build/loader.bin'))
     const gdt_off = 8
     const gdt_len = 4
     let gdt = new BigUint64Array(bin.buffer, gdt_off, gdt_len)
@@ -34,7 +39,7 @@ function writeGDT() {
         system: false
     })
 
-    fs.writeFileSync(path.join(__dirname, 'build/loader.bin'), bin)
+    fs.writeFileSync(rs('build/loader.bin'), bin)
 }
 
 const MODE_REAL = 0n
@@ -92,10 +97,10 @@ function gd({ limit, base, rw, executable, system, mode, pri, scale_4k }) {
 
 function buildKernel() {
     const cwd = process.cwd()
-    process.chdir(path.join(__dirname, 'kernel'))
+    process.chdir(rs('kernel'))
     cp.execSync('cargo build --release')
     process.chdir(__dirname)
-    const bin = fs.readFileSync(path.join(__dirname, 'target/x86-unknown-bare_metal/release/kernel'))
+    const bin = fs.readFileSync(rs('target/x86-unknown-bare_metal/release/kernel'))
     const newBin = Buffer.alloc(bin.length)
 
     // size of program header = 32 byte
@@ -124,7 +129,7 @@ function buildKernel() {
         bin.copy(newBin, vAddr - memOff, segOff, segOff + fileSz)
     }
 
-    fs.writeFileSync(path.join(__dirname, 'build/kernel.bin'), newBin)
+    fs.writeFileSync(rs('build/kernel.bin'), newBin)
     process.chdir(cwd)
 }
 
@@ -142,7 +147,7 @@ function genLoader() {
     const error_vectors = [0x08, 0x0a, 0x0b, 0x0d, 0x0e, 0x11, 0x18, 0x1a, 0x1b, 0x1d, 0x1e]
 
 
-    const file = fs.readFileSync(path.join(__dirname, 'asm/loader.S'), 'utf8')
+    const file = fs.readFileSync(rs('asm/loader.S'), 'utf8')
     const lines = file.split('\n')
 
     let j = 0
@@ -175,7 +180,7 @@ function genLoader() {
 
     let y = lines.slice(j, lines.length).join('\n')
 
-    fs.writeFileSync(path.join(__dirname, 'asm/loader.gen.S'), x + idt + vcs + y)
+    fs.writeFileSync(rs('asm/loader.gen.S'), x + idt + vcs + y)
 }
 
 function repLine(file, n, s) {
@@ -191,17 +196,17 @@ function sectorsOf(f) {
 }
 
 // make build directory if not exists
-if (!fs.existsSync(path.join(__dirname, 'build'))) {
-    fs.mkdirSync('build')
+if (!fs.existsSync(rs('build'))) {
+    fs.mkdirSync(rs('build'))
 }
 
 // set display library by platform
 switch (os.platform()) {
     case 'darwin':
-        repLine(path.join(__dirname, 'bochsrc.txt'), 92, 'display_library: sdl2')
+        repLine(rs('bochsrc.txt'), 92, 'display_library: sdl2')
         break
     case 'win32':
-        repLine(path.join(__dirname, 'bochsrc.txt'), 92, 'display_library: win32, options = "gui_debug"')
+        repLine(rs('bochsrc.txt'), 92, 'display_library: win32, options = "gui_debug"')
         break
 }
 
@@ -211,24 +216,24 @@ genLoader()
 // build kernel
 buildKernel()
 
-const kernelSectors = sectorsOf(path.join(__dirname, 'build/kernel.bin'))
+const kernelSectors = sectorsOf(rs('build/kernel.bin'))
 
 // replace KERNEL SECTORS macro
 repLine(
-    path.join(__dirname, 'asm/boot.inc'),
+    rs('asm/boot.inc'),
     4, `KERNEL_SECTORS equ ${kernelSectors}`
 )
 
 // change directory
-process.chdir(path.join(__dirname, 'asm'))
+process.chdir(rs('asm'))
 
 // build loader to estimate size
 cp.execSync('nasm -o ../build/loader.bin loader.gen.S')
 
-const loaderSectors = sectorsOf(path.join(__dirname, 'build/loader.bin'))
+const loaderSectors = sectorsOf(rs('build/loader.bin'))
 
 repLine(
-    path.join(__dirname, 'asm/boot.inc'),
+    rs('asm/boot.inc'),
     3, `LOADER_SECTORS equ ${loaderSectors}`
 )
 
