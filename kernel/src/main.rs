@@ -93,17 +93,14 @@ pub extern "C" fn _start() {
 
         // enable interrupt
         asm::sti();
+
+        thread::new_thread(th, 0, "th0", 1);
         loop {
         }
     }
 }
 
 extern "C" fn th(p: usize) {
-    for _ in 0..LOOP_CNT {
-        plus();
-    }
-    loop {
-    }
 }
 
 #[panic_handler]

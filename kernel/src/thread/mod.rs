@@ -1,12 +1,14 @@
 use rlib::alloc_static;
 use rlib::link::{LinkedList, Node};
 
-use crate::{Pool, print, println};
-use crate::asm::{IntCtx, reg_ctx, REG_CTX_LEN, switch};
+use crate::asm::{reg_ctx, switch, REG_CTX_LEN};
 use crate::err::SE;
-use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc};
+use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE};
 use crate::thread::data::all;
 use crate::thread::Status::{Ready, Running};
+use crate::{print, println, Pool};
+
+use self::reg::KernelCtx;
 
 mod data;
 mod reg;
@@ -18,8 +20,6 @@ const STACK_MAGIC: u32 = 0x55aa55aa;
 pub const PCB_SIZE: usize = PCB_PAGES * PAGE_SIZE;
 
 static mut TICKS: u32 = 0;
-// address of switch to
-pub static mut SWITCH_TO: usize = 0;
 
 pub fn ticks() -> &'static mut u32 {
     unsafe { &mut TICKS }
@@ -35,11 +35,9 @@ macro_rules! cur_pcb {
     };
 }
 
-pub extern "C" fn entry() {
+pub extern "C" fn entry(fun: Routine, args: usize) {
     crate::asm::sti();
-    let cur = current_pcb();
-    let fun = cur.rt;
-    fun(cur.args);
+    fun(args);
 }
 
 #[repr(u8)]
@@ -49,15 +47,11 @@ pub enum Status {
     Running,
 }
 
-
 // ready -> running
 #[repr(C)]
 pub struct PCB {
     stack: usize,
     pointers: [usize; 4],
-    reg_ctx: [u32; REG_CTX_LEN],
-    rt: Routine,
-    args: usize,
     status: Status,
     priority: u8,
     ticks: u8,
@@ -78,13 +72,15 @@ impl Node for PCB {
 }
 
 impl PCB {
-    pub fn new(rt: Routine, args: usize, name: &str, priority: u8, off: usize) -> &'static mut Self {
+    pub fn new(
+        name: &str,
+        priority: u8,
+        off: usize,
+    ) -> &'static mut Self {
         let p: &'static mut PCB = cst!(off);
         let len = p.name_buf.len().min(name.as_bytes().len());
 
         p.stack = off + PCB_SIZE;
-        p.rt = rt;
-        p.args = args;
         p.name_len = len as u8;
         p.name_buf[..len].copy_from_slice(&name.as_bytes()[..len]);
         p.ticks = priority;
@@ -92,6 +88,18 @@ impl PCB {
         p.status = Ready;
         p.magic = STACK_MAGIC;
         p
+    }
+
+    pub fn init(&mut self, rt: Routine, args: usize) {
+        self.stack -= core::mem::size_of::<crate::thread::reg::IntCtx>();
+        self.stack -= core::mem::size_of::<crate::thread::reg::KernelCtx>();
+        let k_ctx = self.kernel_ctx();
+        k_ctx.func = rt as usize as u32;
+        k_ctx.eip = entry as usize as u32;
+    }
+
+    fn kernel_ctx(&self) -> &'static mut KernelCtx {
+        cst!(self.stack)
     }
 
     pub fn status_mut(&mut self) -> &mut Status {
@@ -124,7 +132,8 @@ pub fn current_pcb() -> &'static mut PCB {
 
 pub fn new_thread(rt: Routine, args: usize, name: &str, priority: u8) {
     let pcb_off = pg_alloc(Pool::KERNEL, 1).unwrap();
-    let pcb = PCB::new(rt, args, name, priority, pcb_off);
+    let pcb = PCB::new(name, priority, pcb_off);
+    pcb.init(rt, args);
     all().append(pcb);
 }
 
@@ -169,6 +178,5 @@ pub fn schedule() {
     unsafe {
         *switch_cnt() += 1;
     }
-    println!("switch = {}", unsafe { SWITCH_CNT });
     switch(cur.off(), n.off());
 }

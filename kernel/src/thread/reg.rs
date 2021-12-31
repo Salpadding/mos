@@ -12,10 +12,11 @@ pub struct KernelCtx {
 
 #[repr(packed)]
 pub struct IntCtx {
+    pub vec: u32,
     pub edi: u32,
     pub esi: u32,
     pub ebp: u32,
-    pub esp: u32,
+    pub dum: u32,
     pub ebx: u32,
     pub edx: u32,
     pub ecx: u32,
@@ -30,5 +31,7 @@ pub struct IntCtx {
     pub eip: u32,
     pub cs: u32,
     pub e_flags: u32,
+    pub esp: u32,
+    pub ss: u32,
 }
 

@@ -160,8 +160,6 @@ pub fn init_page() {
     // init process
     // since we not paged memory, we cannot access 0xc0500000
     let init = PCB::new(
-        unsafe { core::mem::transmute(crate::_start as usize) },
-        0,
         "init",
         0xff,
         init_off,
