@@ -38,10 +38,7 @@ pub static EXCEPTIONS: &[&'static str] = &[
 
 // if return 0, recover from interrupt
 // else switch current stack to another stack
-extern "C" fn int_entry() {
-    let buf = crate::asm::asm_buf();
-    let vec = buf[0];
-
+extern "C" fn int_entry(vec: u32) {
     if vec < 20 {
         println!("EXCEPTION: {}", EXCEPTIONS[vec as usize]);
         loop {}

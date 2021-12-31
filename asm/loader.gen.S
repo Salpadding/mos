@@ -32,6 +32,8 @@ asm_api:
     jz .int_rust
     cmp eax, 3
     jz .mem_sz
+    cmp eax, 4
+    jz .switch
     mov eax, 0
     ret
 .gdt:
@@ -46,6 +48,9 @@ asm_api:
 .mem_sz:
     mov eax, [mem_sz],
     mov [asm_buf], eax
+    ret
+.switch:
+    mov dword [asm_buf], switch
     ret
 mem_sz:
     dd 0
@@ -135,11 +140,6 @@ p_mode_start:
 
     jmp SELECTOR_CODE:KERNEL_ENTRY
 
-; store esp temporary in isr
-int_esp_0:
-    dd 0
-int_esp_1:
-    dd 0
 
 %define ERROR_CODE nop		 ; 若在相关的异常中cpu已经自动压入了错误码,为保持栈中格式统一,这里不做操作.
 %define ZERO push dword 0		 ; 若在相关的异常中cpu没有压入错误码,为了统一栈中格式,就手工压入一个0
@@ -147,54 +147,21 @@ int_esp_1:
 %macro VECTOR 2
 int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一个中断类型一个中断处理程序，自己知道自己的中断向量号是多少
    %2				 ; 中断若有错误码会压在eip后面
-   mov  [int_esp_0], esp ; backup esp
 
-; 以下是保存上下文环境
-   mov  esp, asm_buf + ASM_BUF_LEN
-
-   ; save eax, ecx, edx, ebx, esp, ebp, esi, edi
-   ; and ds, es, fs, gs
-   pushad
-   mov eax, [int_esp_0]
-   add eax, 16
-   mov [esp + 12], eax
-
-   ; we are now 32bit
-   push ds
+   push ds ; save context
    push es
    push fs
    push gs
-
-   mov [int_esp_1], esp
-   mov esp, [int_esp_0]
-
-   ; error code
-   pop dword [asm_buf + 4]
-
-   ; eip
-   pop dword [asm_buf + 8]
-
-   ; cs
-   pop dword [asm_buf + 12]
-
-   ; eflags
-   pop dword [asm_buf + 16]
+   pushad
 
    ; 如果是从片上进入的中断,除了往从片上发送EOI外,还要往主片上发送EOI
    mov al,0x20                   ; 中断结束命令EOI
    out 0xa0,al                   ; 向从片发送
    out 0x20,al                   ; 向主片发送
 
-   mov  dword [asm_buf], %1
-   mov  eax, 0
-   mov  ebx, eax
-   mov  ecx, eax
-   mov  edx, eax
-   mov  esi, eax
-   mov  edi, eax
+   push dword %1
    call [int_rust]       ; call rust interrupt handler
-   mov [asm_buf], eax
-
+   add  esp, 4
    jmp int_exit
 
 %endmacro
@@ -274,23 +241,32 @@ VECTOR 0x20, ZERO
 ;;; IDT_CODE ;;;
 
 int_exit:
-   mov esp, [int_esp_1]
+   popad
    pop gs
    pop fs
    pop es
    pop ds
-   popad
-
-   mov esp, [asm_buf + ASM_BUF_LEN - 4 * 5]
-   ; eflags
-   push dword [asm_buf + 16]
-   ; cs
-   push dword [asm_buf + 12]
-   ; eip
-   push dword [asm_buf + 8]
-
+   add esp, 4
    iretd
 
-; align to 4k
-; nasm will do some magic optimize if not reserve padding
-times 10*1024 - ($ - $$) db 0 
+switch: ; switch(cur, next)
+    ; esp = ret, esp + 4 = cur, esp + 8 = next 
+    push esi
+    push edi
+    push ebx
+    push ebp
+    ; esp + 16 = ret, esp + 20 = cur, esp + 24 = next 
+
+    mov eax, [esp + 20]    
+    mov [eax], esp ; save current context
+    ; switch to next context
+
+    mov eax, [esp + 24]
+    mov esp, [eax]
+    pop ebp
+    pop ebx
+    pop edi
+    pop esi
+    ret
+
+times 8*1024 - ($ - $$) db 0 

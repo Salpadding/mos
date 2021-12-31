@@ -72,6 +72,7 @@ pub extern "C" fn _start() {
     use crate::mem::page_enabled;
 
     if !*page_enabled() {
+        asm::init();
         // setup page, page allocator, init thread pcb, jump to _start()
         *page_enabled() = true;
         println!("init page");
@@ -90,20 +91,9 @@ pub extern "C" fn _start() {
         println!("timer init success");
         println!("sti success");
 
-        let names = ["th0", "th1", "th2", "th3"];
-
-        for i in 0..THREADS {
-            thread::new_thread(th, i as usize + 1, names[i as usize], 1);
-        }
-
-        println!("address of I = 0x{:08X}", unsafe {
-            &I as *const _ as usize
-        });
-
         // enable interrupt
         asm::sti();
         loop {
-            unsafe { println!("I = {} EXPECT = {}", I, LOOP_CNT * THREADS); }
         }
     }
 }

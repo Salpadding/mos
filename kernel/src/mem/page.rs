@@ -163,7 +163,7 @@ pub fn init_page() {
         unsafe { core::mem::transmute(crate::_start as usize) },
         0,
         "init",
-        1,
+        0xff,
         init_off,
     );
 

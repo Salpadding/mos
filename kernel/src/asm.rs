@@ -9,6 +9,19 @@ pub const KERNEL_ENTRY: usize = 1 << 20;
 type AsmApi = extern "C" fn();
 type AsmBuf = &'static mut [u32];
 
+static mut SWITCH_ADDR: usize = 0;
+
+pub fn init() {
+    unsafe {
+        SWITCH_ADDR = api_call(methods::SWITCH_ADDR, &[]) as usize;
+    }
+}
+
+pub fn switch(cur: usize, next: usize) {
+    let f: extern "C" fn(cur: u32, next: u32) = unsafe { core::mem::transmute(SWITCH_ADDR) };
+    f(cur as u32, next as u32);
+}
+
 // get register context, for
 pub fn reg_ctx() -> &'static mut [u32] {
     asm_buf()
@@ -64,9 +77,18 @@ pub trait IntCtx {
         let gs = *self.gs();
         let cs = *self.cs();
         let eip = *self.eip();
-        println!("eax = 0x{:08X} ebx = 0x{:08X} ecx = 0x{:08X} edx = 0x{:08X}", eax, ebx, ecx, edx);
-        println!("esp = 0x{:08X} ebp = 0x{:08X} esi = 0x{:08X} edi = 0x{:08X}", esp, ebp, esi, edi);
-        println!("ds = 0x{:08X}  es  = 0x{:08X} fs  = 0x{:08X} gs  = 0x{:08X}", ds, es, fs, gs);
+        println!(
+            "eax = 0x{:08X} ebx = 0x{:08X} ecx = 0x{:08X} edx = 0x{:08X}",
+            eax, ebx, ecx, edx
+        );
+        println!(
+            "esp = 0x{:08X} ebp = 0x{:08X} esi = 0x{:08X} edi = 0x{:08X}",
+            esp, ebp, esi, edi
+        );
+        println!(
+            "ds = 0x{:08X}  es  = 0x{:08X} fs  = 0x{:08X} gs  = 0x{:08X}",
+            ds, es, fs, gs
+        );
         println!("cs = 0x{:08X}  eip = 0x{:08X}", cs, eip);
     }
 }
@@ -96,7 +118,6 @@ impl IntCtx for [u32] {
     }
 }
 
-
 #[macro_export]
 macro_rules! e_flags {
     () => {
@@ -123,6 +144,7 @@ mod methods {
     pub const INT_ENTRIES_OFF: u32 = 1;
     pub const INT_RUST_OFF: u32 = 2;
     pub const MEM_SZ: u32 = 3;
+    pub const SWITCH_ADDR: u32 = 4;
 }
 
 fn api_call(method: u32, args: &[u32]) -> u32 {
@@ -139,16 +161,12 @@ pub fn memory_size() -> u32 {
 }
 
 pub fn out_b(port: u16, b: u8) {
-    unsafe {
-        asm!("out dx, al", in("dx") port, in("al") b)
-    };
+    unsafe { asm!("out dx, al", in("dx") port, in("al") b) };
 }
 
 pub fn in_b(port: u16) -> u8 {
     let r: u8;
-    unsafe {
-        asm!("in al, dx", out("al") r, in("dx") port)
-    };
+    unsafe { asm!("in al, dx", out("al") r, in("dx") port) };
     r
 }
 
@@ -163,7 +181,6 @@ pub fn out_sw(port: u16, buf: &[u16]) {
         )
     }
 }
-
 
 pub fn in_sw(port: u16, buf: &mut [u16]) {
     unsafe {
@@ -210,13 +227,16 @@ pub fn int_rust() -> usize {
 }
 
 pub fn sti() {
-    unsafe { asm!("sti"); }
+    unsafe {
+        asm!("sti");
+    }
 }
 
 pub fn cli() {
-    unsafe { asm!("cli"); }
+    unsafe {
+        asm!("cli");
+    }
 }
-
 
 #[repr(packed)]
 pub struct GdtPtr {

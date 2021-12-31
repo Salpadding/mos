@@ -2,13 +2,14 @@ use rlib::alloc_static;
 use rlib::link::{LinkedList, Node};
 
 use crate::{Pool, print, println};
-use crate::asm::{IntCtx, reg_ctx, REG_CTX_LEN};
+use crate::asm::{IntCtx, reg_ctx, REG_CTX_LEN, switch};
 use crate::err::SE;
 use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc};
 use crate::thread::data::all;
 use crate::thread::Status::{Ready, Running};
 
 mod data;
+mod reg;
 
 pub type Routine = extern "C" fn(args: usize);
 
@@ -52,6 +53,7 @@ pub enum Status {
 // ready -> running
 #[repr(C)]
 pub struct PCB {
+    stack: usize,
     pointers: [usize; 4],
     reg_ctx: [u32; REG_CTX_LEN],
     rt: Routine,
@@ -80,6 +82,7 @@ impl PCB {
         let p: &'static mut PCB = cst!(off);
         let len = p.name_buf.len().min(name.as_bytes().len());
 
+        p.stack = off + PCB_SIZE;
         p.rt = rt;
         p.args = args;
         p.name_len = len as u8;
@@ -132,12 +135,16 @@ pub fn init() {
     crate::idt::register(0x20, schedule);
 }
 
+static mut SWITCH_CNT: u64 = 0;
+
+fn switch_cnt() -> &'static mut u64 {
+    unsafe { &mut SWITCH_CNT }
+}
+
 // process scheduler
 pub fn schedule() {
     // get current pcb
     let cur = current_pcb();
-    // save ctx
-    let ctx = reg_ctx();
 
     // check if overflow
     assert!(!cur.overflow(), "stack of thread {} overflow!", cur.name());
@@ -154,30 +161,14 @@ pub fn schedule() {
     }
 
     cur.ticks = cur.priority;
-    // switch to another thread
     let l = all();
-    let h = l.pop_head();
-
-    if h.is_none() {
-        return;
-    }
-
-
-    let p = h.unwrap();
-
-    cur.reg_ctx.copy_from_slice(ctx);
-
-
-    if p.status == Ready {
-        p.reg_ctx.copy_from_slice(ctx);
-        p.reg_ctx.reset_general();
-        *p.reg_ctx.eip() = entry as usize as u32;
-        *p.reg_ctx.esp() = p.stack() as u32;
-        *p.reg_ctx.ebp() = p.stack() as u32;
-        p.status = Running;
-    }
-
-    // restore context
-    ctx.copy_from_slice(&p.reg_ctx);
     l.append(cur);
+
+    let n = l.pop_head().unwrap();
+
+    unsafe {
+        *switch_cnt() += 1;
+    }
+    println!("switch = {}", unsafe { SWITCH_CNT });
+    switch(cur.off(), n.off());
 }
