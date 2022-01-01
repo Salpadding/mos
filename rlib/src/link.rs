@@ -73,10 +73,11 @@ impl<T: 'static + Node> LinkedList<T> {
         8 * 4 + (core::mem::size_of::<T>() + 7) / 8 * 8 * 2
     }
 
-    pub fn new(off: usize) -> &'static mut Self {
+    pub fn new(off: usize, prev_i: u8, next_i: u8) -> &'static mut Self {
         let t = unsafe { &mut *(off as *mut Self) };
-        t.head = off + 8 * 4;
-        t.tail = t.head + (core::mem::size_of::<T>() + 7) / 8 * 8;
+        let head = off + 8 * 4;
+        let tail = head + (core::mem::size_of::<T>() + 7) / 8 * 8;
+        t.init(prev_i, next_i, Self::cast(head), Self::cast(tail));
         t
     }
 
@@ -87,6 +88,7 @@ impl<T: 'static + Node> LinkedList<T> {
         self.tail = tail as *const _ as usize;
         self.head().pointers_mut()[self.next_i as usize] = self.tail;
         self.tail().pointers_mut()[self.prev_i as usize] = self.head;
+        self.ph = PhantomData::default();
     }
 
     pub fn iter(&self) -> Iter<T> {

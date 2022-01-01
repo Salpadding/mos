@@ -13,6 +13,7 @@ use core::panic::PanicInfo;
 use vga::{put_char, puts};
 
 use crate::mem::Pool;
+use crate::vga::vga_lock;
 
 static mut I: u64 = 0;
 const LOOP_CNT: u64 = 1 << 12;
@@ -85,6 +86,7 @@ pub extern "C" fn _start() {
 
         // add main thread into list, register scheduler
         crate::thread::init();
+        unsafe { vga::THREAD_INIT = true };
 
         println!("thread init success");
 
@@ -94,13 +96,18 @@ pub extern "C" fn _start() {
         println!("sti success");
 
         crate::thread::new_thread(th_print_d, 0, "th0", 1);
-        crate::thread::new_thread(th_print_d, 2, "th1", 1);
+        // crate::thread::new_thread(th_print_d, 2, "th1", 1);
 
         // enable interrupt
         asm::sti();
 
         loop {
+            let lock = vga_lock();
+            lock.lock();
+            println!("locked success");
             // print!("Main ");
+            lock.unlock();
+            println!("unlock success");
         }
     }
 }

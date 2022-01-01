@@ -77,20 +77,18 @@ pub fn puts(s: &str) {
 
 pub static mut VGA_LOCK: [u8; 256] = [0u8; 256];
 pub static mut VGA_LOCK_REF: usize = 0;
+pub static mut THREAD_INIT: bool = false;
 
-fn vga_lock() -> &'static mut Lock {
+pub fn vga_lock() -> &'static mut Lock {
     cst!(VGA_LOCK_REF)
 }
 
 #[no_mangle]
 pub fn put_char(c: u8) {
-    // let lock = vga_lock();
-    // lock.lock();
     let vga = buf();
 
     if c == b'\n' {
         next_line();
-        // lock.unlock();
         return;
     }
 
@@ -105,5 +103,4 @@ pub fn put_char(c: u8) {
             VGA_COL += 1;
         }
     }
-    // lock.unlock();
 }
