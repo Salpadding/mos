@@ -22,6 +22,29 @@ pub struct Iter<T: Node> {
     ph: PhantomData<T>,
 }
 
+pub struct RawIter<T: Node> {
+    cur: usize,
+    tail: usize,
+    next_i: u8,
+    ph: PhantomData<T>,
+}
+
+
+impl<T: 'static + Node> Iterator for RawIter<T> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cur == self.tail {
+            None
+        } else {
+            let r = self.cur;
+            let c: &'static mut T = LinkedList::cast(self.cur);
+            self.cur = c.pointers()[self.next_i as usize];
+            Some(r)
+        }
+    }
+}
+
 impl<T: 'static + Node> Iterator for Iter<T> {
     type Item = &'static mut T;
 
@@ -38,14 +61,25 @@ impl<T: 'static + Node> Iterator for Iter<T> {
 
 #[derive(Default)]
 pub struct LinkedList<T: Node> {
-    prev_i: u8,
-    next_i: u8,
-    head: usize,
-    tail: usize,
-    ph: PhantomData<T>,
+    pub prev_i: u8,
+    pub next_i: u8,
+    pub head: usize,
+    pub tail: usize,
+    pub ph: PhantomData<T>,
 }
 
 impl<T: 'static + Node> LinkedList<T> {
+    pub const fn alloc_size() -> usize {
+        8 * 4 + (core::mem::size_of::<T>() + 7) / 8 * 8 * 2
+    }
+
+    pub fn new(off: usize) -> &'static mut Self {
+        let t = unsafe { &mut *(off as *mut Self) };
+        t.head = off + 8 * 4;
+        t.tail = t.head + (core::mem::size_of::<T>() + 7) / 8 * 8;
+        t
+    }
+
     pub fn init(&mut self, prev_i: u8, next_i: u8, head: &'static mut T, tail: &'static mut T) {
         self.prev_i = prev_i;
         self.next_i = next_i;
@@ -58,6 +92,16 @@ impl<T: 'static + Node> LinkedList<T> {
     pub fn iter(&self) -> Iter<T> {
         let cur = self.head().pointers()[self.next_i as usize];
         Iter {
+            cur,
+            tail: self.tail,
+            next_i: self.next_i,
+            ph: Default::default(),
+        }
+    }
+
+    pub fn raw_iter(&self) -> RawIter<T> {
+        let cur = self.head().pointers()[self.next_i as usize];
+        RawIter {
             cur,
             tail: self.tail,
             next_i: self.next_i,

@@ -1,22 +1,25 @@
 use rlib::alloc_static;
 use rlib::link::{LinkedList, Node};
 
-use crate::asm::{reg_ctx, switch, REG_CTX_LEN};
+use crate::asm::{switch, REG_CTX_LEN};
 use crate::err::SE;
 use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE};
-use crate::thread::data::all;
+use crate::thread::data::{all, ready};
 use crate::thread::Status::{Ready, Running};
 use crate::{print, println, Pool};
+use crate::thread::reg::IntCtx;
 
 use self::reg::KernelCtx;
 
 mod data;
-mod reg;
+pub mod reg;
+pub mod sync;
 
 pub type Routine = extern "C" fn(args: usize);
+pub const MAIN_PRIORITY: u8 = 31;
 
 pub const PCB_PAGES: usize = 1;
-const STACK_MAGIC: u32 = 0x55aa55aa;
+const STACK_MAGIC: u32 = 0x238745ea;
 pub const PCB_SIZE: usize = PCB_PAGES * PAGE_SIZE;
 
 static mut TICKS: u32 = 0;
@@ -45,6 +48,10 @@ pub extern "C" fn entry(fun: Routine, args: usize) {
 pub enum Status {
     Ready,
     Running,
+    Blocked,
+    Waiting,
+    Hanging,
+    Died
 }
 
 // ready -> running
@@ -90,12 +97,13 @@ impl PCB {
         p
     }
 
-    pub fn init(&mut self, rt: Routine, args: usize) {
+    pub fn init(&mut self, rt: Routine, arg: usize) {
         self.stack -= core::mem::size_of::<crate::thread::reg::IntCtx>();
         self.stack -= core::mem::size_of::<crate::thread::reg::KernelCtx>();
         let k_ctx = self.kernel_ctx();
         k_ctx.func = rt as usize as u32;
         k_ctx.eip = entry as usize as u32;
+        k_ctx.arg = arg as u32;
     }
 
     fn kernel_ctx(&self) -> &'static mut KernelCtx {
@@ -119,7 +127,7 @@ impl PCB {
         self as *const Self as usize
     }
 
-    pub fn stack(&self) -> usize {
+    pub fn stack_off(&self) -> usize {
         self.off() + PCB_SIZE
     }
 }
@@ -134,24 +142,22 @@ pub fn new_thread(rt: Routine, args: usize, name: &str, priority: u8) {
     let pcb_off = pg_alloc(Pool::KERNEL, 1).unwrap();
     let pcb = PCB::new(name, priority, pcb_off);
     pcb.init(rt, args);
+    ready().append(pcb);
     all().append(pcb);
 }
 
 pub fn init() {
     data::init();
 
+    // add main thread to all list
+    let main = current_pcb();
+    all().append(main);
+
     // register handler
-    crate::idt::register(0x20, schedule);
+    crate::int::register(0x20, handle_int);
 }
 
-static mut SWITCH_CNT: u64 = 0;
-
-fn switch_cnt() -> &'static mut u64 {
-    unsafe { &mut SWITCH_CNT }
-}
-
-// process scheduler
-pub fn schedule() {
+fn handle_int(ctx: &'static mut IntCtx) {
     // get current pcb
     let cur = current_pcb();
 
@@ -168,15 +174,25 @@ pub fn schedule() {
         cur.ticks -= 1;
         return;
     }
+    schedule();
+}
 
-    cur.ticks = cur.priority;
-    let l = all();
-    l.append(cur);
+// process scheduler
+pub fn schedule() {
+    let cur = current_pcb();
+    let off = cur.off();
+    let rd = ready();
 
-    let n = l.pop_head().unwrap();
-
-    unsafe {
-        *switch_cnt() += 1;
+    if cur.status == Status::Running {
+        assert!(!rd.raw_iter().any(|x| x == off), "thread in ready");
+        cur.status = Status::Ready;
+        cur.ticks = cur.priority;
+        rd.append(cur);
     }
+
+    assert!(!rd.is_empty(), "ready is empty");
+    let n = rd.pop_head().unwrap();
+    n.status = Status::Running;
+
     switch(cur.off(), n.off());
 }

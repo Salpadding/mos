@@ -1,4 +1,5 @@
 use crate::{asm, panic, println};
+use crate::thread::reg::IntCtx;
 
 const ENTRY_SIZE: usize = 33;
 const SELECTOR_CODE: u16 = 1 << 3;
@@ -38,7 +39,10 @@ pub static EXCEPTIONS: &[&'static str] = &[
 
 // if return 0, recover from interrupt
 // else switch current stack to another stack
-extern "C" fn int_entry(vec: u32) {
+extern "C" fn int_entry(esp: u32) {
+    let ctx: &'static mut IntCtx = cst!(esp);
+    let vec = ctx.vec;
+
     if vec < 20 {
         println!("EXCEPTION: {}", EXCEPTIONS[vec as usize]);
         loop {}
@@ -54,8 +58,8 @@ extern "C" fn int_entry(vec: u32) {
             return;
         }
 
-        let f: fn() -> u32 = core::mem::transmute(f);
-        f();
+        let f: fn(ctx: &'static mut IntCtx) = core::mem::transmute(f);
+        f(ctx);
     }
 }
 
@@ -64,7 +68,7 @@ pub fn int_enabled() -> bool {
     e_flags & E_FLAGS_IF != 0
 }
 
-pub fn register(vec: u16, handle: fn()) {
+pub fn register(vec: u16, handle: fn(int_ctx: &'static mut IntCtx)) {
     unsafe {
         HANDLERS[vec as usize] = handle as usize;
     }
@@ -168,4 +172,24 @@ impl GateBits {
             off_high: ((entry & 0xffff0000) >> 16) as u16,
         }
     }
+}
+
+pub fn enable_int() -> bool {
+    let old = int_enabled();
+    if !old {
+        asm::sti();
+    }
+    old
+}
+
+pub fn disable_int() -> bool {
+    let old = int_enabled();
+    if old {
+        asm::cli();
+    }
+    old
+}
+
+pub fn set_int(enabled: bool) {
+    if enabled { enable_int(); } else { disable_int(); }
 }

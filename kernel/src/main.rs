@@ -10,7 +10,7 @@
 
 use core::panic::PanicInfo;
 
-use vga::{puts, put_char};
+use vga::{put_char, puts};
 
 use crate::mem::Pool;
 
@@ -58,7 +58,7 @@ extern "C" fn eh_personality() {}
 
 mod asm;
 mod err;
-mod idt;
+mod int;
 mod mem;
 mod thread;
 mod timer;
@@ -79,7 +79,7 @@ pub extern "C" fn _start() {
         crate::mem::init_page();
     } else {
         // load interrupt descriptor table
-        idt::init();
+        int::init();
 
         // add main thread into list, register scheduler
         crate::thread::init();
@@ -91,17 +91,46 @@ pub extern "C" fn _start() {
         println!("timer init success");
         println!("sti success");
 
+        crate::thread::new_thread(th_print_d, 0, "th0", 1);
+        crate::thread::new_thread(th_print_d, 2, "th1", 1);
+
         // enable interrupt
         asm::sti();
 
-        thread::new_thread(th, 0, "th0", 1);
         loop {
+            // print!("Main ");
         }
     }
 }
 
-extern "C" fn th(p: usize) {
+static s1: &'static str = "argA ";
+static s2: &'static str = "argB ";
+
+extern "C" fn th_print_d(d: usize) {
+    loop {
+        print!("{:02X}", d);
+    }
 }
+
+extern "C" fn th_print(p: usize) {
+    loop {
+        let mut chars = p as *const u8;
+
+        loop {
+            unsafe {
+                let c = *chars;
+                chars = chars.add(1);
+
+                put_char(c);
+
+                if c == b' ' {
+                    break;
+                }
+            }
+        }
+    }
+}
+
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {

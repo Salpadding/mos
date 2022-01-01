@@ -160,8 +160,9 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
    out 0x20,al                   ; 向主片发送
 
    push dword %1
+   push esp
    call [int_rust]       ; call rust interrupt handler
-   add  esp, 4
+   add  esp, 8
    jmp int_exit
 
 %endmacro
@@ -180,22 +181,17 @@ int_exit:
 
 switch: ; switch(cur, next)
     ; esp = ret, esp + 4 = cur, esp + 8 = next 
-    push esi
-    push edi
-    push ebx
-    push ebp
-    ; esp + 16 = ret, esp + 20 = cur, esp + 24 = next 
+    pushad
+    ; esp + 32 = ret, esp + 36 = cur, esp + 40 = next 
 
-    mov eax, [esp + 20]    
+    mov eax, [esp + 36]    
     mov [eax], esp ; save current context
     ; switch to next context
 
-    mov eax, [esp + 24]
+    mov eax, [esp + 40]
     mov esp, [eax]
-    pop ebp
-    pop ebx
-    pop edi
-    pop esi
+
+    popad
     ret
 
 times 8*1024 - ($ - $$) db 0 

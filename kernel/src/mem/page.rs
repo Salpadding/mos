@@ -3,7 +3,7 @@ use crate::err::SE;
 use crate::mem::{fill_zero, KERNEL_MEM, kernel_pool, PAGE_SIZE};
 use crate::mem::alloc::PAlloc;
 use crate::println;
-use crate::thread::{PCB, PCB_PAGES, PCB_SIZE, Routine, Status};
+use crate::thread::{MAIN_PRIORITY, PCB, PCB_PAGES, PCB_SIZE, Routine, Status};
 
 pub const PE_SIZE: usize = 4;
 pub const PT_LEN: usize = 1024;
@@ -161,13 +161,13 @@ pub fn init_page() {
     // since we not paged memory, we cannot access 0xc0500000
     let init = PCB::new(
         "init",
-        0xff,
+        MAIN_PRIORITY,
         init_off,
     );
 
     // init thread is already running
     *init.status_mut() = Status::Running;
-    let new_stack = OS_MEM_OFF + init.stack();
+    let new_stack = OS_MEM_OFF + init.stack_off();
 
     println!("new stack = 0x{:08X}", new_stack);
     crate::asm::page_jmp(PDE_START, new_stack, OS_MEM_OFF + KERNEL_ENTRY);

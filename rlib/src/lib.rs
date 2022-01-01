@@ -1,4 +1,5 @@
 #![cfg_attr(not(test), no_std)]
+#![feature(const_fn_trait_bound)]
 
 #[macro_export]
 macro_rules! alloc_static {
