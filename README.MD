@@ -70,7 +70,7 @@ mkdir build
 3. build bootloader and kernel
 
 ```sh
-./build.sh
+node make.js
 ```
 
 4. run bochs
