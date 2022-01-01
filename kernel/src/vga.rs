@@ -1,5 +1,6 @@
 use core::fmt;
 use core::fmt::Write;
+use crate::thread::sync::Lock;
 
 const VGA_START: usize = 0xb8000;
 const VGA_WORDS: usize = 0x4000;
@@ -74,12 +75,22 @@ pub fn puts(s: &str) {
     }
 }
 
+pub static mut VGA_LOCK: [u8; 256] = [0u8; 256];
+pub static mut VGA_LOCK_REF: usize = 0;
+
+fn vga_lock() -> &'static mut Lock {
+    cst!(VGA_LOCK_REF)
+}
+
 #[no_mangle]
 pub fn put_char(c: u8) {
+    // let lock = vga_lock();
+    // lock.lock();
     let vga = buf();
 
     if c == b'\n' {
         next_line();
+        // lock.unlock();
         return;
     }
 
@@ -94,4 +105,5 @@ pub fn put_char(c: u8) {
             VGA_COL += 1;
         }
     }
+    // lock.unlock();
 }

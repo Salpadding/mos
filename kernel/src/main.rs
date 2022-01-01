@@ -63,6 +63,7 @@ mod mem;
 mod thread;
 mod timer;
 mod vga;
+mod init;
 
 /// The name **must be** `_start`, otherwise the compiler doesn't output anything
 /// to the object file. I don't know why it is like this.
@@ -72,6 +73,7 @@ pub extern "C" fn _start() {
     use crate::mem::page_enabled;
 
     if !*page_enabled() {
+        crate::init::init_statics();
         asm::init();
         // setup page, page allocator, init thread pcb, jump to _start()
         *page_enabled() = true;

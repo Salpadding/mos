@@ -1,14 +1,61 @@
+use rlib::link::LinkedList;
+
 use crate::int::{disable_int, set_int};
 use crate::thread::{current_pcb, PCB, schedule, Status};
 use crate::thread::data::{all, ready};
-use rlib::link::LinkedList;
 
-pub struct Semaphore<'a> {
+pub struct Semaphore {
     value: u32,
-    waiters: &'a mut LinkedList<PCB>,
+    waiters: &'static mut LinkedList<PCB>,
 }
 
-impl Semaphore<'_> {
+pub struct Lock {
+    holder: Option<&'static PCB>,
+    sem: Semaphore,
+    repeats: u32,
+}
+
+impl Lock {
+    pub fn new(off: usize, len: usize) -> &'static mut Self {
+        let lock_len = (core::mem::size_of::<Lock>() + 7) / 8 * 8;
+        assert!(len >= lock_len + LinkedList::<PCB>::alloc_size());
+        let waiters_off = off + lock_len;
+        let waiters = LinkedList::new(waiters_off);
+        let r: &'static mut Self = cst!(off);
+        r.holder = None;
+        r.sem.waiters = waiters;
+        r.sem.value = 1;
+        r
+    }
+
+    pub fn lock(&mut self) {
+        let cur = current_pcb();
+        if self.holder.is_some() && self.holder.as_ref().unwrap().off() == cur.off() {
+            self.repeats += 1;
+            return;
+        }
+        self.sem.p();
+        self.holder = Some(cur);
+        self.repeats += 1;
+    }
+
+    pub fn unlock(&mut self) {
+        let cur = current_pcb();
+        assert_eq!(self.holder.as_ref().unwrap().off(), cur.off(), "unlock without lock");
+
+        if self.repeats > 1 {
+            self.repeats -= 1;
+            return;
+        }
+
+        assert_eq!(self.repeats, 1, "repeats != 0");
+        self.holder = None;
+        self.repeats = 0;
+        self.sem.v();
+    }
+}
+
+impl Semaphore {
     // p operation
     pub fn p(&mut self) {
         let old = disable_int();
@@ -52,7 +99,7 @@ pub fn unblock(pcb: &'static mut PCB) {
 
     if pcb.status == Status::Ready {
         set_int(old);
-        return
+        return;
     }
 
     let rd = ready();
