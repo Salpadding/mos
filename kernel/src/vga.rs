@@ -94,7 +94,8 @@ pub fn put_char(c: u8) {
 
     let cx: u16 = (c as u16) | 0x0f00;
     unsafe {
-        vga[(VGA_LINES - 1) * VGA_COLS + VGA_COL] = cx;
+        let i = (VGA_LINES - 1) * VGA_COLS + VGA_COL;
+        vga[i] = cx;
 
         if VGA_COL == VGA_COLS - 1 {
             VGA_COL = 0;

@@ -5,6 +5,7 @@ use crate::println;
 use crate::thread::{current_pcb, PCB, schedule, Status};
 use crate::thread::data::{all, ready};
 
+
 pub struct Semaphore {
     value: u32,
     waiters: &'static mut LinkedList<PCB>,
@@ -62,16 +63,16 @@ impl Semaphore {
     pub fn p(&mut self) {
         let old = disable_int();
         let cur = current_pcb();
-        println!("{}: p()", cur.name());
+        debug!("{}: p()", cur.name());
         while self.value == 0 {
             assert!(!self.waiters.raw_iter().any(|x| x == cur.off()), "duplicate p op");
             self.waiters.append(cur);
-            println!("{}: block", cur.name());
+            debug!("{}: block", cur.name());
             block(Status::Blocked);
-            println!("{}: ret from block value = {}", cur.name(), self.value);
+            debug!("{}: ret from block value = {}", cur.name(), self.value);
         }
         self.value -= 1;
-        println!("{}: p() success", cur.name());
+        debug!("{}: p() success", cur.name());
         set_int(old);
     }
 
@@ -79,15 +80,15 @@ impl Semaphore {
         let old = disable_int();
 
         let cur = current_pcb();
-        println!("{}: v()", cur.name());
+        debug!("{}: v()", cur.name());
         if !self.waiters.is_empty() {
             let blocked = self.waiters.pop_head().unwrap();
-            println!("{}: unblock {}", cur.name(), blocked.name());
+            debug!("{}: unblock {}", cur.name(), blocked.name());
             unblock(blocked);
         }
 
         self.value += 1;
-        println!("{}: v() success", cur.name());
+        debug!("{}: v() success", cur.name());
         set_int(old);
     }
 }

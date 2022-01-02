@@ -11,6 +11,16 @@ use crate::thread::reg::IntCtx;
 
 use self::reg::KernelCtx;
 
+pub static mut DEBUG: bool = true;
+
+macro_rules! debug {
+    ($($arg:tt)*) => {
+        if unsafe { $crate::thread::DEBUG } {
+            println!($($arg)*);
+        }
+    };
+}
+
 mod data;
 pub mod reg;
 pub mod sync;
@@ -195,6 +205,6 @@ pub fn schedule(reason: &str) {
     let n = rd.pop_head().unwrap();
     n.status = Status::Running;
 
-    println!("switch from {} to {} reason = {}", cur.name(), n.name(), reason);
+    debug!("switch from {} to {} reason = {}", cur.name(), n.name(), reason);
     switch(cur.off(), n.off());
 }
