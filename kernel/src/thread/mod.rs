@@ -16,7 +16,7 @@ pub mod reg;
 pub mod sync;
 
 pub type Routine = extern "C" fn(args: usize);
-pub const MAIN_PRIORITY: u8 = 31;
+pub const MAIN_PRIORITY: u8 = 1;
 
 pub const PCB_PAGES: usize = 1;
 const STACK_MAGIC: u32 = 0x238745ea;
@@ -44,7 +44,7 @@ pub extern "C" fn entry(fun: Routine, args: usize) {
 }
 
 #[repr(u8)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum Status {
     Ready,
     Running,
@@ -179,6 +179,7 @@ fn handle_int(ctx: &'static mut IntCtx) {
 
 // process scheduler
 pub fn schedule() {
+    assert!(!crate::int::int_enabled(), "int enabled");
     let cur = current_pcb();
     let off = cur.off();
     let rd = ready();
@@ -194,5 +195,6 @@ pub fn schedule() {
     let n = rd.pop_head().unwrap();
     n.status = Status::Running;
 
+    // println!("switch from {} to {}", cur.name(), n.name());
     switch(cur.off(), n.off());
 }

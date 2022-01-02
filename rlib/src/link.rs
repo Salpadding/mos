@@ -69,7 +69,7 @@ pub struct LinkedList<T: Node> {
 }
 
 impl<T: 'static + Node> LinkedList<T> {
-    pub const fn alloc_size() -> usize {
+    pub fn alloc_size() -> usize {
         8 * 4 + (core::mem::size_of::<T>() + 7) / 8 * 8 * 2
     }
 

@@ -101,13 +101,14 @@ pub extern "C" fn _start() {
         // enable interrupt
         asm::sti();
 
+        let lock = vga_lock();
         loop {
-            let lock = vga_lock();
             lock.lock();
-            println!("locked success");
-            // print!("Main ");
+            // println!("locked success");
+            // print!("01");
+            unsafe { asm!("nop"); }
             lock.unlock();
-            println!("unlock success");
+            // println!("unlock success");
         }
     }
 }
@@ -116,8 +117,16 @@ static s1: &'static str = "argA ";
 static s2: &'static str = "argB ";
 
 extern "C" fn th_print_d(d: usize) {
+    let lock = vga_lock();
     loop {
-        print!("{:02X}", d);
+        // println!("before init locked");
+        lock.lock();
+        // println!("init locked");
+        unsafe { asm!("nop"); }
+        // print!("{:02X}", d);
+        // println!("before init unlock");
+        lock.unlock();
+        // println!("init unlocked");
     }
 }
 
