@@ -68,6 +68,7 @@ impl Semaphore {
             self.waiters.append(cur);
             println!("{}: block", cur.name());
             block(Status::Blocked);
+            println!("{}: ret from block value = {}", cur.name(), self.value);
         }
         self.value -= 1;
         println!("{}: p() success", cur.name());
@@ -78,15 +79,15 @@ impl Semaphore {
         let old = disable_int();
 
         let cur = current_pcb();
-        // println!("{}: v()", cur.name());
+        println!("{}: v()", cur.name());
         if !self.waiters.is_empty() {
             let blocked = self.waiters.pop_head().unwrap();
-            //println!("{}: unblock {}", cur.name(), blocked.name());
+            println!("{}: unblock {}", cur.name(), blocked.name());
             unblock(blocked);
         }
 
         self.value += 1;
-        //println!("{}: v() success", cur.name());
+        println!("{}: v() success", cur.name());
         set_int(old);
     }
 }
@@ -97,7 +98,7 @@ pub fn block(status: Status) {
     let old = disable_int();
     let cur = current_pcb();
     cur.status = status;
-    schedule();
+    schedule("block");
     set_int(old);
 }
 

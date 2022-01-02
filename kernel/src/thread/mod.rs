@@ -174,11 +174,11 @@ fn handle_int(ctx: &'static mut IntCtx) {
         cur.ticks -= 1;
         return;
     }
-    schedule();
+    schedule("int");
 }
 
 // process scheduler
-pub fn schedule() {
+pub fn schedule(reason: &str) {
     assert!(!crate::int::int_enabled(), "int enabled");
     let cur = current_pcb();
     let off = cur.off();
@@ -195,6 +195,6 @@ pub fn schedule() {
     let n = rd.pop_head().unwrap();
     n.status = Status::Running;
 
-    // println!("switch from {} to {}", cur.name(), n.name());
+    println!("switch from {} to {} reason = {}", cur.name(), n.name(), reason);
     switch(cur.off(), n.off());
 }
