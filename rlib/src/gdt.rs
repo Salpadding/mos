@@ -77,9 +77,9 @@ impl GdtBuilder {
         assert_eq!(self.access & 1 << 3, 0);
 
         if v {
-           self.access |= 1 << 3;
+           self.access |= 1 << 2;
         } else {
-           self.access &= !(1 << 3);
+           self.access &= !(1 << 2);
         }
         self
     }
@@ -89,9 +89,9 @@ impl GdtBuilder {
         assert_ne!(self.access & 1 << 3, 0);
 
         if v {
-            self.access |= 1 << 3;
+            self.access |= 1 << 2;
         } else {
-            self.access &= !(1 << 3);
+            self.access &= !(1 << 2);
         }
         self
     }

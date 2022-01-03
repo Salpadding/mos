@@ -5,8 +5,12 @@ pub const ASM_BUF_LEN: usize = 64;
 pub const REG_CTX_LEN: usize = ASM_BUF_LEN;
 pub const ASM_API_OFF: usize = ASM_BUF_OFF + ASM_BUF_LEN * 4;
 pub const KERNEL_ENTRY: usize = 1 << 20;
-pub const SELECTOR_K_DATA: u16 = 2 << 3;
+
 pub const SELECTOR_K_CODE: u16 = 1 << 3;
+pub const SELECTOR_K_DATA: u16 = 2 << 3;
+pub const SELECTOR_U_CODE: u16 = 3 << 3 | 3;
+pub const SELECTOR_U_DATA: u16 = 4 << 3 | 3;
+pub const SELECTOR_TSS:    u16 = 5 << 3;
 
 type AsmApi = extern "C" fn();
 type AsmBuf = &'static mut [u32];

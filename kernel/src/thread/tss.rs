@@ -1,4 +1,5 @@
 use rlib::gdt::gdt;
+use crate::asm::SELECTOR_TSS;
 use crate::println;
 
 pub const TSS_LEN: usize = 27;
@@ -71,8 +72,10 @@ pub fn init() {
     println!("gdt ptr = {}", crate::asm::gdt());
     println!("{:?}", gdt);
 
-    // reload gdt
+    // load gdt and tss
     unsafe {
         asm!("lgdt [{}]", in(reg) crate::asm::gdt());
+        let v: u32 = SELECTOR_TSS as u32;
+        asm!("ltr [{}]", in(reg) &v as *const _ as usize);
     }
 }
