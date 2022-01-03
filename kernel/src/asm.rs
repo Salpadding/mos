@@ -99,9 +99,10 @@ pub fn in_sw(port: u16, buf: &mut [u16]) {
     }
 }
 
-pub fn gdt() -> &'static mut GdtPtr {
+
+pub fn gdt() -> u32 {
     let p = api_call(methods::GDT_PTR, &[]);
-    unsafe { &mut *(p as *mut _) }
+    p
 }
 
 pub fn lidt(addr: usize) {

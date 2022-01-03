@@ -7,9 +7,26 @@ pub fn gdt(off: usize, len: usize) -> &'static mut [u64] {
     }
 }
 
-pub fn reload() {
-    unsafe {}
+pub fn user_code() -> u64 {
+    let mut bd = GdtBuilder::default();
+    bd.limit(0xffffffff).present(true).executable(true).rw(true)
+        .mode(Mode::Protect).privilege(3)
+        .lim_4k(true)
+        .system(false)
+        .conforming(true).build()
 }
+
+
+pub fn user_data() -> u64 {
+    let mut bd = GdtBuilder::default();
+    bd.limit(0xffffffff).present(true).executable(false).rw(true)
+        .mode(Mode::Protect).privilege(3)
+        .lim_4k(true)
+        .system(false)
+        .conforming(true).build()
+}
+
+
 
 pub enum Mode {
     Real,
@@ -46,8 +63,36 @@ impl GdtBuilder {
         self
     }
 
-    pub fn present(&mut self) -> &mut Self {
-        self.access |= 1 << 7;
+    pub fn present(&mut self, v: bool) -> &mut Self {
+        if v {
+            self.access |= 1 << 7;
+        } else {
+            self.access &= !(1 << 7);
+        }
+        self
+    }
+
+    pub fn grow_down(&mut self, v: bool) -> &mut Self {
+        // assert is data segment
+        assert_eq!(self.access & 1 << 3, 0);
+
+        if v {
+           self.access |= 1 << 3;
+        } else {
+           self.access &= !(1 << 3);
+        }
+        self
+    }
+
+    pub fn conforming(&mut self, v: bool) -> &mut Self {
+        // assert is code segment
+        assert_eq!(self.access & 1 << 3, 1);
+
+        if v {
+            self.access |= 1 << 3;
+        } else {
+            self.access &= !(1 << 3);
+        }
         self
     }
 
@@ -80,6 +125,24 @@ impl GdtBuilder {
             self.access &= !(1 << 4);
         } else {
             self.access |= 1 << 4;
+        }
+        self
+    }
+
+    pub fn mode(&mut self, m: Mode) -> &mut Self {
+        match m {
+            Mode::Real => {
+                self.flags &= !(1 << 2);
+                self.flags &= !(1 << 1);
+            }
+            Mode::Protect => {
+                self.flags |= 1 << 2;
+                self.flags &= !(1 << 1);
+            }
+            Mode::Long => {
+                self.flags &= !(1 << 2);
+                self.flags |= 1 << 1;
+            }
         }
         self
     }

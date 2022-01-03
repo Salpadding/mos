@@ -65,7 +65,6 @@ mod thread;
 mod timer;
 mod vga;
 mod init;
-mod gdt;
 
 /// The name **must be** `_start`, otherwise the compiler doesn't output anything
 /// to the object file. I don't know why it is like this.
@@ -82,6 +81,7 @@ pub extern "C" fn _start() {
         *page_enabled() = true;
         println!("init page");
         crate::mem::init_page();
+        crate::thread::tss::init();
     } else {
         // load interrupt descriptor table
         int::init();

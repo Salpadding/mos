@@ -26,7 +26,7 @@ mod data;
 pub mod reg;
 pub mod sync;
 pub mod user;
-mod tss;
+pub mod tss;
 
 pub type Routine = extern "C" fn(args: usize);
 pub const DEFAULT_PRIORITY: u8 = 32;

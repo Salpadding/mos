@@ -41,3 +41,21 @@ impl TSS for [u32] {
     im!(esp0, esp0_mut, 1);
     im!(ss0, ss0_mut, 2);
 }
+
+const GDT_OFF: usize = 8;
+const GDT_LEN: usize = 8;
+
+pub fn init() {
+    // 0, 1, 2 is predefined
+   let gdt = rlib::gdt::gdt(GDT_OFF, GDT_LEN);
+
+    // 3 is user code
+    gdt[3] = rlib::gdt::user_code();
+    // 4 is user data
+    gdt[4] = rlib::gdt::user_data();
+
+    // reload gdt
+    unsafe {
+        asm!("lgdt [{}]", in(reg) crate::asm::gdt());
+    }
+}

@@ -39,6 +39,7 @@ function writeGDT() {
         system: false
     })
 
+    console.log(`gdt = ${gdt}`)
     fs.writeFileSync(rs('build/loader.bin'), bin)
 }
 
