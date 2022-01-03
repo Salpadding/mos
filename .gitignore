@@ -18,4 +18,4 @@ node_modules
 
 /target
 Cargo.lock
-
+console.txt

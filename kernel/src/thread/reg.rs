@@ -1,6 +1,7 @@
 use crate::println;
 
 #[repr(packed)]
+#[derive(Debug)]
 pub struct KernelCtx {
     pub edi: u32,
     pub esi: u32,
@@ -10,6 +11,10 @@ pub struct KernelCtx {
     pub edx: u32,
     pub ecx: u32,
     pub eax: u32,
+    pub gs: u32,
+    pub fs: u32,
+    pub es: u32,
+    pub ds: u32,
     pub eip: u32,
     // address of rust thread entry or the return address
     pub dum_ret: u32,
@@ -18,7 +23,13 @@ pub struct KernelCtx {
     pub arg: u32,
 }
 
-static INT_CTX_NAMES: &[&'static str] = &["vec", "edi", "esi", "ebp", "dum", "ebx", "ecx", "eax", "gs", "fs", "es", "ds", "e_code", "eip", "cs", "e_flags", "esp", "ss"];
+static INT_CTX_NAMES: &[&'static str] = &[
+    "vec", "edi", "esi", "ebp", "dum",
+    "ebx", "edx", "ecx", "eax",
+    "gs", "fs", "es", "ds",
+    "e_code", "eip", "cs", "e_flags",
+    "esp", "ss"
+];
 
 #[repr(packed)]
 #[derive(Debug)]

@@ -140,14 +140,12 @@ p_mode_start:
 
     jmp SELECTOR_CODE:KERNEL_ENTRY
 
-
 %define ERROR_CODE nop		 ; 若在相关的异常中cpu已经自动压入了错误码,为保持栈中格式统一,这里不做操作.
 %define ZERO push dword 0		 ; 若在相关的异常中cpu没有压入错误码,为了统一栈中格式,就手工压入一个0
 
 %macro VECTOR 2
 int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一个中断类型一个中断处理程序，自己知道自己的中断向量号是多少
    %2				 ; 中断若有错误码会压在eip后面
-
    push ds ; save context
    push es
    push fs
@@ -252,17 +250,25 @@ int_exit:
 
 switch: ; switch(cur, next)
     ; esp = ret, esp + 4 = cur, esp + 8 = next 
+    push ds
+    push es
+    push fs
+    push gs
     pushad
     ; esp + 32 = ret, esp + 36 = cur, esp + 40 = next 
 
-    mov eax, [esp + 36]    
+    mov eax, [esp + 52]    
     mov [eax], esp ; save current context
     ; switch to next context
 
-    mov eax, [esp + 40]
+    mov eax, [esp + 56]
     mov esp, [eax]
 
     popad
+    pop gs
+    pop fs
+    pop es
+    pop ds
     ret
 
 times 8*1024 - ($ - $$) db 0 

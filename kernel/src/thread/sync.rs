@@ -1,7 +1,7 @@
 use rlib::link::LinkedList;
 
 use crate::int::{disable_int, set_int};
-use crate::println;
+use crate::{println, put_char, puts};
 use crate::thread::{current_pcb, PCB, schedule, Status};
 use crate::thread::data::{all, ready};
 
@@ -30,6 +30,7 @@ impl Lock {
         r
     }
 
+    #[no_mangle]
     pub fn lock(&mut self) {
         let cur = current_pcb();
 
@@ -42,6 +43,7 @@ impl Lock {
         self.repeats += 1;
     }
 
+    #[no_mangle]
     pub fn unlock(&mut self) {
         let cur = current_pcb();
         assert_eq!(self.holder.as_ref().unwrap().off(), cur.off(), "unlock without lock");
@@ -60,6 +62,8 @@ impl Lock {
 
 impl Semaphore {
     // p operation
+    #[inline(never)]
+    #[no_mangle]
     pub fn p(&mut self) {
         let old = disable_int();
         let cur = current_pcb();
@@ -76,6 +80,8 @@ impl Semaphore {
         set_int(old);
     }
 
+    #[inline(never)]
+    #[no_mangle]
     pub fn v(&mut self) {
         let old = disable_int();
 

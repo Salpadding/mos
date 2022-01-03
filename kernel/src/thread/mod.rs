@@ -1,7 +1,7 @@
 use rlib::alloc_static;
 use rlib::link::{LinkedList, Node};
 
-use crate::asm::{switch, REG_CTX_LEN};
+use crate::asm::{switch, REG_CTX_LEN, SELECTOR_DATA};
 use crate::err::SE;
 use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE};
 use crate::thread::data::{all, ready};
@@ -11,11 +11,12 @@ use crate::thread::reg::IntCtx;
 
 use self::reg::KernelCtx;
 
-pub static mut DEBUG: bool = true;
+pub const DEBUG: bool = false;
 
 macro_rules! debug {
     ($($arg:tt)*) => {
-        if unsafe { $crate::thread::DEBUG } {
+        if !$crate::int::int_enabled() && unsafe { $crate::thread::DEBUG } {
+            assert!(!$crate::int::int_enabled(), "int enabled");
             println!($($arg)*);
         }
     };
@@ -113,6 +114,8 @@ impl PCB {
         let k_ctx = self.kernel_ctx();
         k_ctx.func = rt as usize as u32;
         k_ctx.eip = entry as usize as u32;
+        k_ctx.ds = SELECTOR_DATA;
+        k_ctx.es = SELECTOR_DATA;
         k_ctx.arg = arg as u32;
     }
 

@@ -1,5 +1,7 @@
-use crate::{asm, panic, println};
+use crate::thread::current_pcb;
 use crate::thread::reg::IntCtx;
+use crate::{asm, panic, println, put_char, print};
+use crate::vga::{next_line, VGA_COL};
 
 const ENTRY_SIZE: usize = 33;
 const SELECTOR_CODE: u16 = 1 << 3;
@@ -43,8 +45,18 @@ extern "C" fn int_entry(esp: u32) {
     let ctx: &'static mut IntCtx = cst!(esp);
     let vec = ctx.vec;
 
+    // if ctx.gs != 0 {
+    //     let cur = current_pcb();
+    // }
+    // IntCtx::debug(ctx as *const _);
+    // println!("m\n");
+    // crate::vga::next_line();
     if vec < 20 {
         println!("EXCEPTION: {}", EXCEPTIONS[vec as usize]);
+
+        if vec == 13 {
+            IntCtx::debug(ctx as *const _);
+        }
         loop {}
     }
 
@@ -191,5 +203,9 @@ pub fn disable_int() -> bool {
 }
 
 pub fn set_int(enabled: bool) {
-    if enabled { enable_int(); } else { disable_int(); }
+    if enabled {
+        enable_int();
+    } else {
+        disable_int();
+    }
 }

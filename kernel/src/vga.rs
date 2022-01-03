@@ -1,13 +1,14 @@
+use crate::asm::{out_b, in_b};
+use crate::thread::sync::Lock;
 use core::fmt;
 use core::fmt::Write;
-use crate::thread::sync::Lock;
 
 const VGA_START: usize = 0xb8000;
 const VGA_WORDS: usize = 0x4000;
 const VGA_LINES: usize = 25;
 const VGA_COLS: usize = 80;
 
-static mut VGA_COL: usize = 0;
+pub static mut VGA_COL: usize = 0;
 
 #[macro_export]
 macro_rules! print {
@@ -38,12 +39,7 @@ pub fn _print(args: fmt::Arguments) {
 }
 
 pub fn buf() -> &'static mut [u16] {
-    unsafe {
-        core::slice::from_raw_parts_mut(
-            VGA_START as *mut _,
-            VGA_WORDS,
-        )
-    }
+    unsafe { core::slice::from_raw_parts_mut(VGA_START as *mut _, VGA_WORDS) }
 }
 
 pub fn cls() {
@@ -83,8 +79,26 @@ pub fn vga_lock() -> &'static mut Lock {
     cst!(VGA_LOCK_REF)
 }
 
+const PORT: u16 = 0x3f8;
+
+pub fn init_com1() {
+    out_b(PORT + 1, 0x00); // Disable all interrupts
+    out_b(PORT + 3, 0x80); // Enable DLAB (set baud rate divisor)
+    out_b(PORT + 0, 0x03); // Set divisor to 3 (lo byte) 38400 baud
+    out_b(PORT + 1, 0x00); //                  (hi byte)
+    out_b(PORT + 3, 0x03); // 8 bits, no parity, one stop bit
+    out_b(PORT + 2, 0xC7); // Enable FIFO, clear them, with 14-byte threshold
+    out_b(PORT + 4, 0x0B); // IRQs enabled, RTS/DSR set
+    out_b(PORT + 4, 0x1E); // Set in loopback mode, test the serial chip
+    out_b(PORT + 0, 0xAE); // Test serial chip (send byte 0xAE and check if serial returns same byte)
+    assert!(in_b(PORT) == 0xAE);
+    out_b(PORT + 4, 0x0f);
+}
+
 #[no_mangle]
 pub fn put_char(c: u8) {
+    // while crate::asm::in_b(PORT + 5) & 0x20 == 0 {}
+    // out_b(PORT, c);
     let vga = buf();
 
     if c == b'\n' {

@@ -11,3 +11,4 @@ edition = "2021"
 [dependencies]
 [profile.release]
 panic = "abort"
+opt-level = 1

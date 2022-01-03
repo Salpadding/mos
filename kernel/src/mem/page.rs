@@ -170,5 +170,5 @@ pub fn init_page() {
     let new_stack = OS_MEM_OFF + init.stack_off();
 
     println!("new stack = 0x{:08X}", new_stack);
-    crate::asm::page_jmp(PDE_START, new_stack, OS_MEM_OFF + KERNEL_ENTRY);
+    crate::asm::page_jmp(PDE_START, new_stack, KERNEL_ENTRY);
 }

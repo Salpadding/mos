@@ -74,6 +74,7 @@ pub extern "C" fn _start() {
     use crate::mem::page_enabled;
 
     if !*page_enabled() {
+        crate::vga::init_com1();
         crate::init::init_statics();
         asm::init();
         // setup page, page allocator, init thread pcb, jump to _start()
@@ -92,8 +93,6 @@ pub extern "C" fn _start() {
 
         // increase interrupt frequency
         crate::timer::init();
-        println!("timer init success");
-        println!("sti success");
 
         crate::thread::new_thread(th_print_d, 0, "th0", 1);
         // crate::thread::new_thread(th_print_d, 2, "th1", 1);
@@ -105,8 +104,7 @@ pub extern "C" fn _start() {
         loop {
             lock.lock();
             // println!("locked success");
-            // print!("01");
-            unsafe { asm!("nop"); }
+            print!("01");
             lock.unlock();
             // println!("unlock success");
         }
@@ -121,9 +119,7 @@ extern "C" fn th_print_d(d: usize) {
     loop {
         // println!("before init locked");
         lock.lock();
-        // println!("init locked");
-        unsafe { asm!("nop"); }
-        // print!("{:02X}", d);
+        print!("{:02X}", d);
         // println!("before init unlock");
         lock.unlock();
         // println!("init unlocked");
