@@ -146,7 +146,7 @@ pub fn cli() {
 #[repr(packed)]
 pub struct GdtPtr {
     pub gdt_bound: u16,
-    gdt_base: usize,
+    pub gdt_base: usize,
 }
 
 impl GdtPtr {

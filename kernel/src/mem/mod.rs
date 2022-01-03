@@ -138,13 +138,11 @@ pub fn init() {
     k.total_pages = kernel_pages;
     k.avl_pages = k.total_pages;
 
-    let m = bit_map();
     u.p_start = RESERVED_MEM + KERNEL_MEM;
     u.bitmap = alloc_bit_map(user_pages / 8);
     u.total_pages = user_pages;
     u.avl_pages = u.total_pages;
 
-    let m = bit_map();
     v.bitmap = alloc_bit_map(kernel_pages / 8);
     v.v_start = page::OS_MEM_OFF + RESERVED_MEM;
 }

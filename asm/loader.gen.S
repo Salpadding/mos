@@ -9,10 +9,7 @@ times 8 - ($ - $$) db 0
 
 [bits 32]
 gdt_base:
-    dq 0
-    dq 0
-    dq 0
-    dq 0
+    times 8 dq 0 
 gdt_end:
 
 times ASM_BUF_OFF - LOADER_BASE_ADDR - ($ - $$) db 0

@@ -65,6 +65,7 @@ mod thread;
 mod timer;
 mod vga;
 mod init;
+mod gdt;
 
 /// The name **must be** `_start`, otherwise the compiler doesn't output anything
 /// to the object file. I don't know why it is like this.
@@ -94,20 +95,12 @@ pub extern "C" fn _start() {
         // increase interrupt frequency
         crate::timer::init();
 
-        crate::thread::new_thread(th_print_d, 0, "th0", 1);
+        // crate::thread::new_thread(th_print_d, 0, "th0", 1);
         // crate::thread::new_thread(th_print_d, 2, "th1", 1);
 
         // enable interrupt
         asm::sti();
-
-        let lock = vga_lock();
-        loop {
-            lock.lock();
-            // println!("locked success");
-            print!("01");
-            lock.unlock();
-            // println!("unlock success");
-        }
+        loop {}
     }
 }
 

@@ -25,9 +25,12 @@ macro_rules! debug {
 mod data;
 pub mod reg;
 pub mod sync;
+pub mod user;
+mod tss;
 
 pub type Routine = extern "C" fn(args: usize);
-pub const MAIN_PRIORITY: u8 = 1;
+pub const DEFAULT_PRIORITY: u8 = 32;
+pub const MAIN_PRIORITY: u8 = DEFAULT_PRIORITY;
 
 pub const PCB_PAGES: usize = 1;
 const STACK_MAGIC: u32 = 0x238745ea;

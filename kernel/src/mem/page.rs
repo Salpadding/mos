@@ -10,6 +10,7 @@ pub const PT_LEN: usize = 1024;
 pub const PT_SIZE: usize = PE_SIZE * PT_LEN;
 pub const OS_MEM_OFF: usize = 0xc0000000;
 pub const RESERVED_MEM: usize = 5 << 20;
+pub const USER_V_START: usize = 8 << 20;
 
 // 1m area for page
 pub const PAGE_AREA_SIZE: usize = 1024 * 1024;
@@ -19,10 +20,14 @@ pub const PDE_START: usize = 0x10000;
 
 pub const BUF_UPPER_BOUND: usize = 0x80000;
 
+// for static alloc before page setup
 static mut PD_USED: usize = 0;
 
-fn page_dir() -> PageTable {
-    unsafe { core::slice::from_raw_parts_mut(PDE_START as *mut _, PT_LEN) }
+
+
+
+fn page_dir(off: usize) -> PageTable {
+    unsafe { core::slice::from_raw_parts_mut(off as *mut _, PT_LEN) }
 }
 
 pub trait VirtualAddress {
@@ -94,7 +99,7 @@ pub fn static_alloc(pages: usize, init: bool) -> Result<usize, SE> {
 
 // map
 pub fn map_page(v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Result<(), SE> {
-    let pd = page_dir();
+    let pd = page_dir(PDE_START);
     let pde_i = v.pde_i();
 
     if trace {
