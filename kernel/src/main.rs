@@ -80,8 +80,8 @@ pub extern "C" fn _start() {
         // setup page, page allocator, init thread pcb, jump to _start()
         *page_enabled() = true;
         println!("init page");
-        crate::mem::init_page();
         crate::thread::tss::init();
+        crate::mem::init_page();
     } else {
         // load interrupt descriptor table
         int::init();

@@ -1,3 +1,5 @@
+use crate::println;
+
 pub const TSS_LEN: usize = 27;
 pub const TSS_SIZE: usize = TSS_LEN * 4;
 pub const TSS_BOUND: usize = TSS_SIZE - 1;
@@ -53,6 +55,18 @@ pub fn init() {
     gdt[3] = rlib::gdt::user_code();
     // 4 is user data
     gdt[4] = rlib::gdt::user_data();
+
+    let mut bd = rlib::gdt::GdtBuilder::default();
+    gdt[5] = bd.present(true).base(unsafe { TSS_DATA.as_ptr() as usize as u32 })
+        .limit(TSS_BOUND as u32)
+        .access(true)
+        .privilege(0)
+        .system(true)
+        .lim_4k(true)
+        .executable(true).build();
+
+
+    println!("gdt ptr = {}", crate::asm::gdt());
 
     // reload gdt
     unsafe {

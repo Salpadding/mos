@@ -1,10 +1,10 @@
 use crate::thread::current_pcb;
 use crate::thread::reg::IntCtx;
 use crate::{asm, panic, println, put_char, print};
+use crate::asm::SELECTOR_K_CODE;
 use crate::vga::{next_line, VGA_COL};
 
 const ENTRY_SIZE: usize = 33;
-const SELECTOR_CODE: u16 = 1 << 3;
 const E_FLAGS_IF: u32 = 0x00000200;
 
 // 32bit interrupt gate
@@ -178,7 +178,7 @@ impl GateBits {
     fn new(entry: u32, attr: u8) -> Self {
         Self {
             off_low: (entry & 0xffff) as u16,
-            selector: SELECTOR_CODE,
+            selector: SELECTOR_K_CODE,
             reserved: 0,
             attr,
             off_high: ((entry & 0xffff0000) >> 16) as u16,

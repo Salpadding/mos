@@ -20,7 +20,7 @@ function writeGDT() {
     gdt[1] = gd({
         limit: 0xffffffffn,
         base: 0n,
-        rw: true,
+        rw: false,
         executable: true,
         mode: MODE_PROTECT,
         pri: PRI_KERNEL,

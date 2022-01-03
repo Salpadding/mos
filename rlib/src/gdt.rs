@@ -9,7 +9,7 @@ pub fn gdt(off: usize, len: usize) -> &'static mut [u64] {
 
 pub fn user_code() -> u64 {
     let mut bd = GdtBuilder::default();
-    bd.limit(0xffffffff).present(true).executable(true).rw(true)
+    bd.limit(0xffffffff).present(true).executable(true).rw(false)
         .mode(Mode::Protect).privilege(3)
         .lim_4k(true)
         .system(false)
@@ -23,7 +23,7 @@ pub fn user_data() -> u64 {
         .mode(Mode::Protect).privilege(3)
         .lim_4k(true)
         .system(false)
-        .conforming(true).build()
+        .build()
 }
 
 
@@ -53,15 +53,15 @@ impl GdtBuilder {
         self
     }
 
-    pub fn access(&mut self, acc: u8) -> &mut Self {
-        self.access = acc;
+    pub fn access(&mut self, v: bool) -> &mut Self {
+        if v {
+            self.access |= 1;
+        } else {
+            self.access &= !1;
+        }
         self
     }
 
-    pub fn flags(&mut self, flags: u8) -> &mut Self {
-        self.flags = flags;
-        self
-    }
 
     pub fn present(&mut self, v: bool) -> &mut Self {
         if v {
@@ -86,7 +86,7 @@ impl GdtBuilder {
 
     pub fn conforming(&mut self, v: bool) -> &mut Self {
         // assert is code segment
-        assert_eq!(self.access & 1 << 3, 1);
+        assert_ne!(self.access & 1 << 3, 0);
 
         if v {
             self.access |= 1 << 3;
