@@ -1,3 +1,4 @@
+use rlib::gdt::gdt;
 use crate::println;
 
 pub const TSS_LEN: usize = 27;
@@ -44,12 +45,13 @@ impl TSS for [u32] {
     im!(ss0, ss0_mut, 2);
 }
 
-const GDT_OFF: usize = 8;
+const GDT_OFF: usize = 0x800 + 8;
 const GDT_LEN: usize = 8;
 
 pub fn init() {
+
     // 0, 1, 2 is predefined
-   let gdt = rlib::gdt::gdt(GDT_OFF, GDT_LEN);
+   let gdt = gdt(GDT_OFF, GDT_LEN);
 
     // 3 is user code
     gdt[3] = rlib::gdt::user_code();
@@ -67,6 +69,7 @@ pub fn init() {
 
 
     println!("gdt ptr = {}", crate::asm::gdt());
+    println!("{:?}", gdt);
 
     // reload gdt
     unsafe {
