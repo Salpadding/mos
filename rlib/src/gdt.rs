@@ -1,32 +1,33 @@
 pub fn gdt(off: usize, len: usize) -> &'static mut [u64] {
-    unsafe {
-        core::slice::from_raw_parts_mut(
-            off as *mut _,
-            len,
-        )
-    }
+    unsafe { core::slice::from_raw_parts_mut(off as *mut _, len) }
 }
 
 pub fn user_code() -> u64 {
     let mut bd = GdtBuilder::default();
-    bd.limit(0xffffffff).present(true).executable(true).rw(false)
-        .mode(Mode::Protect).privilege(3)
+    bd.limit(0xffffffff)
+        .present(true)
+        .executable(true)
+        .rw(false)
+        .mode(Mode::Protect)
+        .privilege(3)
         .lim_4k(true)
         .system(false)
-        .conforming(true).build()
+        .conforming(true)
+        .build()
 }
-
 
 pub fn user_data() -> u64 {
     let mut bd = GdtBuilder::default();
-    bd.limit(0xffffffff).present(true).executable(false).rw(true)
-        .mode(Mode::Protect).privilege(3)
+    bd.limit(0xffffffff)
+        .present(true)
+        .executable(false)
+        .rw(true)
+        .mode(Mode::Protect)
+        .privilege(3)
         .lim_4k(true)
         .system(false)
         .build()
 }
-
-
 
 pub enum Mode {
     Real,
@@ -62,7 +63,6 @@ impl GdtBuilder {
         self
     }
 
-
     pub fn present(&mut self, v: bool) -> &mut Self {
         if v {
             self.access |= 1 << 7;
@@ -77,9 +77,9 @@ impl GdtBuilder {
         assert_eq!(self.access & 1 << 3, 0);
 
         if v {
-           self.access |= 1 << 2;
+            self.access |= 1 << 2;
         } else {
-           self.access &= !(1 << 2);
+            self.access &= !(1 << 2);
         }
         self
     }
@@ -167,7 +167,6 @@ impl GdtBuilder {
         data[3] |= ((self.limit & 0xf0000) >> 16) as u16;
         data[3] |= (self.flags as u16) << 4;
         data[3] |= (((self.base & 0xff000000) >> 24) << 8) as u16;
-
 
         for i in 0..data.len() {
             let tmp = data[i].to_le_bytes();

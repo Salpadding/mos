@@ -1,4 +1,4 @@
-use crate::asm::SELECTOR_TSS;
+use crate::asm::{SELECTOR_K_DATA, SELECTOR_TSS};
 use crate::println;
 use rlib::gdt::gdt;
 
@@ -7,6 +7,12 @@ pub const TSS_SIZE: usize = TSS_LEN * 4;
 pub const TSS_BOUND: usize = TSS_SIZE - 1;
 
 pub static mut TSS_DATA: [u32; TSS_LEN] = [0u32; TSS_LEN];
+
+fn tss() -> &'static mut [u32] {
+    unsafe {
+        &mut TSS_DATA
+    }
+}
 
 macro_rules! m {
     ($f: ident, $fm: ident, $i: expr) => {
@@ -19,6 +25,7 @@ macro_rules! m {
     };
 }
 
+// Task state segment, record stack pointer when switching from user to kernel 
 pub trait TSS {
     fn slice(&self) -> &[u32];
     fn slice_mut(&mut self) -> &mut [u32];
@@ -65,6 +72,10 @@ const GDT_OFF: usize = 0x800 + 8;
 const GDT_LEN: usize = 8;
 
 pub fn init() {
+    let tss = tss();
+    *tss.ss0_mut() = SELECTOR_K_DATA as u32;
+    *tss.io_base_mut() = (TSS_LEN * 4) as u32;
+
     // 0, 1, 2 is predefined
     let gdt = gdt(GDT_OFF, GDT_LEN);
 
@@ -85,13 +96,10 @@ pub fn init() {
         .executable(true)
         .build();
 
-    println!("gdt ptr = {}", crate::asm::gdt());
-    println!("{:?}", gdt);
 
     // load gdt and tss
     unsafe {
         asm!("lgdt [{}]", in(reg) crate::asm::gdt());
-        let v: u32 = SELECTOR_TSS as u32;
-        asm!("ltr [{}]", in(reg) &v as *const _ as usize);
+        asm!("ltr ax", in("ax") SELECTOR_TSS);
     }
 }
