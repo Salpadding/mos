@@ -53,10 +53,6 @@ extern "C" fn int_entry(esp: u32) {
     // crate::vga::next_line();
     if vec < 20 {
         println!("EXCEPTION: {}", EXCEPTIONS[vec as usize]);
-
-        if vec == 13 {
-            IntCtx::debug(ctx as *const _);
-        }
         loop {}
     }
 

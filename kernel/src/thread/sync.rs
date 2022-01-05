@@ -5,41 +5,40 @@ use crate::thread::data::{all, ready};
 use crate::thread::{current_pcb, schedule, Status, PCB};
 use crate::{c_println, print, println };
 
+#[repr(C)]
 pub struct Semaphore {
     value: u32,
     waiters: &'static mut LinkedList<PCB>,
 }
 
+#[repr(C)]
 pub struct Lock {
     holder: Option<&'static PCB>,
     sem: Semaphore,
     repeats: u32,
 }
 
-pub struct Guard<'a> {
-    lock: Option<&'a mut Lock>,
+pub struct Guard {
+    lock: usize,
 }
 
-impl<'a> Guard<'a> {
-    pub fn unlock(mut self) {
-        let mut n = None;
-        core::mem::swap(&mut n, &mut self.lock);
-
-        match n {
-            Some(x) => { x.unlock();}
-            _ => {}
-        }
+impl Drop for Guard {
+    fn drop(&mut self) {
+        self.unlock();
     }
 }
 
-impl<'a> Drop for Guard<'a> {
-    fn drop(&mut self) {
-        match self.lock {
-            Some(ref mut k) => {
-                k.unlock();
-            }
-            _ => {}
+impl Guard {
+    pub fn unlock(&mut self) {
+        let p = self.lock;
+        self.lock = 0;
+
+        if p == 0 {
+            return;
         }
+
+        let l: &'static mut Lock = cst!(p);
+        l.unlock();
     }
 }
 
@@ -62,16 +61,16 @@ impl Lock {
 
         if self.holder.is_some() && self.holder.as_ref().unwrap().off() == cur.off() {
             self.repeats += 1;
-            return Guard { lock: Some(self) };
+            return Guard { lock: self as *const _ as usize };
         }
         self.sem.p();
         self.holder = Some(cur);
         self.repeats += 1;
-        return Guard { lock: Some(self) };
+        return Guard { lock: self as *const _ as usize };
     }
 
     #[no_mangle]
-    fn unlock(&mut self) {
+    pub fn unlock(&mut self) {
         let cur = current_pcb();
         assert_eq!(
             self.holder.as_ref().unwrap().off(),

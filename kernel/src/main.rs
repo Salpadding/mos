@@ -10,8 +10,7 @@
 
 use core::panic::PanicInfo;
 
-use crate::mem::Pool;
-use crate::vga::vga_lock;
+use crate::{mem::Pool, vga::{VGA_LOCK_REF, put_char}};
 
 static mut I: u64 = 0;
 const LOOP_CNT: u64 = 1 << 12;
@@ -74,12 +73,16 @@ pub extern "C" fn _start() {
     if !*page_enabled() {
         crate::vga::init_com1();
         c_println!("_start = 0x{:08X}", _start as usize);
+        c_println!("vga lock addr = 0x{:08X}", unsafe { &VGA_LOCK_REF as *const _ as usize });
         // c_println!("vga lock = {:?}", vga_lock().is_none());
         // c_println!("init page");
         asm::init();
+        c_println!("asm init()");
         // setup page, page allocator, init thread pcb, jump to _start()
         *page_enabled() = true;
+        c_println!("paged enabled = true");
         crate::thread::tss::init();
+        c_println!("tss init");
         crate::mem::init_page();
     } else {
         c_println!("_start = 0x{:08X}", _start as usize);
@@ -89,8 +92,6 @@ pub extern "C" fn _start() {
         // add main thread into list, register scheduler
         crate::thread::init();
         crate::init::init_locks();
-
-        println!("thread init success");
 
         // increase interrupt frequency
         crate::timer::init();
@@ -104,13 +105,11 @@ pub extern "C" fn _start() {
     }
 }
 
-static s1: &'static str = "argA ";
-static s2: &'static str = "argB ";
-
 extern "C" fn th_print_d(d: usize) {
         // println!("before init locked");
-    println!("{:02X}", d);
-    loop {}
+    loop {
+        print!("{:02X} ", d);
+    }
 }
 
 #[panic_handler]

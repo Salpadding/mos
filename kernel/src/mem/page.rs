@@ -2,7 +2,7 @@ use crate::asm::KERNEL_ENTRY;
 use crate::err::SE;
 use crate::mem::{fill_zero, KERNEL_MEM, kernel_pool, PAGE_SIZE};
 use crate::mem::alloc::PAlloc;
-use crate::println;
+use crate::{println, c_println};
 use crate::thread::{MAIN_PRIORITY, PCB, PCB_PAGES, PCB_SIZE, Routine, Status};
 
 pub const PE_SIZE: usize = 4;
@@ -175,5 +175,6 @@ pub fn init_page() {
     let new_stack = OS_MEM_OFF + init.stack_off();
 
     println!("new stack = 0x{:08X}", new_stack);
+    // println!("new stack");
     crate::asm::page_jmp(PDE_START, new_stack, KERNEL_ENTRY);
 }

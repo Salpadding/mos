@@ -1,26 +1,42 @@
 use crate::asm::{in_b, out_b};
-use crate::c_println;
-use crate::thread::sync::Lock;
 use core::fmt;
 use core::fmt::Write;
 
 const VGA_START: usize = 0xb8000;
-const VGA_WORDS: usize = 0x4000;
 const VGA_LINES: usize = 25;
 const VGA_COLS: usize = 80;
+const VGA_WORDS: usize = VGA_COLS * VGA_LINES;
 
 pub static mut VGA_COL: usize = 0;
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::vga::_print(format_args!($($arg)*), false));
+    ($($arg:tt)*) => { 
+        {
+            if unsafe { $crate::vga::VGA_LOCK_REF == 0 } {
+                $crate::vga::_print(format_args!($($arg)*), false); 
+            } else {
+                let lock: &'static mut $crate::thread::sync::Lock = cst!($crate::vga::VGA_LOCK_REF);
+                let mut gd = lock.lock();
+                $crate::vga::_print(format_args!($($arg)*), false); 
+            }
+        }
+    };
 }
 
 #[macro_export]
 macro_rules! println {
     () => ($crate::print!("\n"));
-    ($($arg:tt)*) => {
-        $crate::vga::_print(format_args!($($arg)*), true);
+    ($($arg:tt)*) => { 
+        {
+            if unsafe { $crate::vga::VGA_LOCK_REF == 0 } {
+                $crate::vga::_print(format_args!($($arg)*), true); 
+            } else {
+                let lock: &'static mut $crate::thread::sync::Lock = cst!($crate::vga::VGA_LOCK_REF);
+                let mut gd = lock.lock();
+                $crate::vga::_print(format_args!($($arg)*), true); 
+            }
+        }
     };
 }
 
@@ -33,15 +49,17 @@ impl fmt::Write for Writer {
     }
 }
 
-pub fn _print(args: fmt::Arguments, n: bool) {
-    // let l = vga_lock();
-    // let gd = l.map(|x| x.lock());
+pub fn _print_unsafe(args: fmt::Arguments, n: bool) {
     let mut w = Writer {};
     w.write_fmt(args).unwrap();
 
     if n {
         next_line();
     }
+}
+
+pub fn _print(args: fmt::Arguments, n: bool) {
+    _print_unsafe(args, n);
 }
 
 pub fn buf() -> &'static mut [u16] {
@@ -71,22 +89,16 @@ pub fn next_line() {
 }
 
 #[no_mangle]
-fn puts(s: &str) {
-    for c in s.as_bytes().iter() {
-        put_char(*c);
+pub fn puts(s: &str) {
+    let bytes = s.as_bytes();
+    let len = s.len();
+    for i in 0..len {
+        put_char(bytes[i]);
     }
 }
 
 pub static mut VGA_LOCK: [u8; 256] = [0u8; 256];
 pub static mut VGA_LOCK_REF: usize = 0;
-
-pub fn vga_lock() -> Option<&'static mut Lock> {
-    if unsafe { VGA_LOCK_REF == 0 } {
-        None
-    } else {
-        Some(cst!(VGA_LOCK_REF))
-    }
-}
 
 const PORT: u16 = 0x3f8;
 

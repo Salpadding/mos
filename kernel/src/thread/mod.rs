@@ -11,7 +11,7 @@ use crate::thread::reg::IntCtx;
 
 use self::reg::KernelCtx;
 
-pub const DEBUG: bool = false;
+pub const DEBUG: bool = true;
 
 macro_rules! debug {
     ($($arg:tt)*) => {
