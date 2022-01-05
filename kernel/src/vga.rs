@@ -11,14 +11,14 @@ pub static mut VGA_COL: usize = 0;
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => { 
+    ($($arg:tt)*) => {
         {
             if unsafe { $crate::vga::VGA_LOCK_REF == 0 } {
-                $crate::vga::_print(format_args!($($arg)*), false); 
+                $crate::vga::_print_unsafe(format_args!($($arg)*));
             } else {
                 let lock: &'static mut $crate::thread::sync::Lock = cst!($crate::vga::VGA_LOCK_REF);
                 let mut gd = lock.lock();
-                $crate::vga::_print(format_args!($($arg)*), false); 
+                $crate::vga::_print_unsafe(format_args!($($arg)*));
             }
         }
     };
@@ -27,14 +27,16 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
     () => ($crate::print!("\n"));
-    ($($arg:tt)*) => { 
+    ($($arg:tt)*) => {
         {
             if unsafe { $crate::vga::VGA_LOCK_REF == 0 } {
-                $crate::vga::_print(format_args!($($arg)*), true); 
+                $crate::vga::_print_unsafe(format_args!($($arg)*));
+                $crate::vga::next_line();
             } else {
                 let lock: &'static mut $crate::thread::sync::Lock = cst!($crate::vga::VGA_LOCK_REF);
                 let mut gd = lock.lock();
-                $crate::vga::_print(format_args!($($arg)*), true); 
+                $crate::vga::_print_unsafe(format_args!($($arg)*));
+                $crate::vga::next_line();
             }
         }
     };
@@ -49,19 +51,13 @@ impl fmt::Write for Writer {
     }
 }
 
-pub fn _print_unsafe(args: fmt::Arguments, n: bool) {
+#[inline]
+pub fn _print_unsafe(args: fmt::Arguments) {
     let mut w = Writer {};
     w.write_fmt(args).unwrap();
-
-    if n {
-        next_line();
-    }
 }
 
-pub fn _print(args: fmt::Arguments, n: bool) {
-    _print_unsafe(args, n);
-}
-
+#[inline]
 pub fn buf() -> &'static mut [u16] {
     unsafe { core::slice::from_raw_parts_mut(VGA_START as *mut _, VGA_WORDS) }
 }
