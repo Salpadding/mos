@@ -1,4 +1,5 @@
 use crate::asm::{in_b, out_b};
+use crate::thread::sync::Lock;
 use core::fmt;
 use core::fmt::Write;
 
@@ -13,14 +14,11 @@ pub static mut VGA_COL: usize = 0;
 macro_rules! print {
     ($($arg:tt)*) => {
         {
-            if unsafe { $crate::vga::VGA_LOCK_REF == 0 } {
-                $crate::vga::_print_unsafe(format_args!($($arg)*));
-            } else {
-                let lock: &'static mut $crate::thread::sync::Lock = cst!($crate::vga::VGA_LOCK_REF);
-                let mut gd = lock.lock();
-                $crate::vga::_print_unsafe(format_args!($($arg)*));
-            }
+            let lock = $crate::vga::vga_lock();
+            let gd = lock.map(|x| x.lock());
+            $crate::vga::_print_unsafe(format_args!($($arg)*));
         }
+
     };
 }
 
@@ -29,17 +27,20 @@ macro_rules! println {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => {
         {
-            if unsafe { $crate::vga::VGA_LOCK_REF == 0 } {
-                $crate::vga::_print_unsafe(format_args!($($arg)*));
-                $crate::vga::next_line();
-            } else {
-                let lock: &'static mut $crate::thread::sync::Lock = cst!($crate::vga::VGA_LOCK_REF);
-                let mut gd = lock.lock();
-                $crate::vga::_print_unsafe(format_args!($($arg)*));
-                $crate::vga::next_line();
-            }
+            let lock = $crate::vga::vga_lock();
+            let gd = lock.map(|x| x.lock());
+            $crate::vga::_print_unsafe(format_args!($($arg)*));
+            $crate::vga::next_line();
         }
     };
+}
+
+pub fn vga_lock() -> Option<&'static mut Lock> {
+    if unsafe { VGA_LOCK_REF == 0 } {
+        None
+    } else {
+        Some(cst!(VGA_LOCK_REF))
+    }
 }
 
 struct Writer {}
