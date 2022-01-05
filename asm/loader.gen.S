@@ -31,6 +31,8 @@ asm_api:
     jz .mem_sz
     cmp eax, 4
     jz .switch
+    cmp eax, 5
+    jz .int_exit
     mov eax, 0
     ret
 .gdt:
@@ -48,6 +50,9 @@ asm_api:
     ret
 .switch:
     mov dword [asm_buf], switch
+    ret
+.int_exit:
+    mov dword [asm_buf], int_exit
     ret
 mem_sz:
     dd 0

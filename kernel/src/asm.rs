@@ -10,16 +10,22 @@ pub const SELECTOR_K_CODE: u16 = 1 << 3;
 pub const SELECTOR_K_DATA: u16 = 2 << 3;
 pub const SELECTOR_U_CODE: u16 = 3 << 3 | 3;
 pub const SELECTOR_U_DATA: u16 = 4 << 3 | 3;
-pub const SELECTOR_TSS:    u16 = 5 << 3;
+pub const SELECTOR_TSS: u16 = 5 << 3;
 
 type AsmApi = extern "C" fn();
 type AsmBuf = &'static mut [u32];
 
 static mut SWITCH_ADDR: usize = 0;
+static mut INT_EXIT: usize = 0;
+
+pub fn int_exit() -> usize {
+    unsafe { INT_EXIT }
+}
 
 pub fn init() {
     unsafe {
         SWITCH_ADDR = api_call(methods::SWITCH_ADDR, &[]) as usize;
+        INT_EXIT = api_call(methods::INT_EXIT, &[]) as usize;
     }
 }
 
@@ -55,6 +61,7 @@ mod methods {
     pub const INT_RUST_OFF: u32 = 2;
     pub const MEM_SZ: u32 = 3;
     pub const SWITCH_ADDR: u32 = 4;
+    pub const INT_EXIT: u32 = 5;
 }
 
 fn api_call(method: u32, args: &[u32]) -> u32 {
@@ -103,7 +110,6 @@ pub fn in_sw(port: u16, buf: &mut [u16]) {
         )
     }
 }
-
 
 pub fn gdt() -> u32 {
     let p = api_call(methods::GDT_PTR, &[]);
