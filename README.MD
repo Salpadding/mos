@@ -80,3 +80,11 @@ bochs
 # return
 # type c to continue
 ```
+
+
+## Kernel initialization
+
+1. initialize com1 port
+2. initialize address of asm function switch (dynamic link)
+3. initialize user privilege gdt and tss segment
+4. 

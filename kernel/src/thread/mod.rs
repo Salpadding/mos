@@ -6,7 +6,7 @@ use crate::err::SE;
 use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE};
 use crate::thread::data::{all, ready};
 use crate::thread::Status::{Ready, Running};
-use crate::{print, println, Pool};
+use crate::{print, println, Pool, c_println};
 use crate::thread::reg::IntCtx;
 
 use self::reg::KernelCtx;
@@ -17,7 +17,7 @@ macro_rules! debug {
     ($($arg:tt)*) => {
         if !$crate::int::int_enabled() && unsafe { $crate::thread::DEBUG } {
             assert!(!$crate::int::int_enabled(), "int enabled");
-            println!($($arg)*);
+            c_println!($($arg)*);
         }
     };
 }

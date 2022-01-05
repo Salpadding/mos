@@ -1,6 +1,6 @@
 use crate::thread::current_pcb;
 use crate::thread::reg::IntCtx;
-use crate::{asm, panic, println, put_char, print};
+use crate::{asm, panic, println, print};
 use crate::asm::SELECTOR_K_CODE;
 use crate::vga::{next_line, VGA_COL};
 

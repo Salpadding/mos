@@ -1,4 +1,5 @@
-use crate::asm::{out_b, in_b};
+use crate::asm::{in_b, out_b};
+use crate::c_println;
 use crate::thread::sync::Lock;
 use core::fmt;
 use core::fmt::Write;
@@ -12,15 +13,14 @@ pub static mut VGA_COL: usize = 0;
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::vga::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::vga::_print(format_args!($($arg)*), false));
 }
 
 #[macro_export]
 macro_rules! println {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => {
-        $crate::vga::_print(format_args!($($arg)*));
-        $crate::vga::put_char(b'\n');
+        $crate::vga::_print(format_args!($($arg)*), true);
     };
 }
 
@@ -33,9 +33,15 @@ impl fmt::Write for Writer {
     }
 }
 
-pub fn _print(args: fmt::Arguments) {
+pub fn _print(args: fmt::Arguments, n: bool) {
+    // let l = vga_lock();
+    // let gd = l.map(|x| x.lock());
     let mut w = Writer {};
-    w.write_fmt(args);
+    w.write_fmt(args).unwrap();
+
+    if n {
+        next_line();
+    }
 }
 
 pub fn buf() -> &'static mut [u16] {
@@ -65,7 +71,7 @@ pub fn next_line() {
 }
 
 #[no_mangle]
-pub fn puts(s: &str) {
+fn puts(s: &str) {
     for c in s.as_bytes().iter() {
         put_char(*c);
     }
@@ -73,10 +79,13 @@ pub fn puts(s: &str) {
 
 pub static mut VGA_LOCK: [u8; 256] = [0u8; 256];
 pub static mut VGA_LOCK_REF: usize = 0;
-pub static mut THREAD_INIT: bool = false;
 
-pub fn vga_lock() -> &'static mut Lock {
-    cst!(VGA_LOCK_REF)
+pub fn vga_lock() -> Option<&'static mut Lock> {
+    if unsafe { VGA_LOCK_REF == 0 } {
+        None
+    } else {
+        Some(cst!(VGA_LOCK_REF))
+    }
 }
 
 const PORT: u16 = 0x3f8;
@@ -97,8 +106,6 @@ pub fn init_com1() {
 
 #[no_mangle]
 pub fn put_char(c: u8) {
-    // while crate::asm::in_b(PORT + 5) & 0x20 == 0 {}
-    // out_b(PORT, c);
     let vga = buf();
 
     if c == b'\n' {
