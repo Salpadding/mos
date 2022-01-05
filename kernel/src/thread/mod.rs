@@ -8,6 +8,7 @@ use crate::thread::data::{all, ready};
 use crate::thread::Status::{Ready, Running};
 use crate::{print, println, Pool, c_println};
 use crate::thread::reg::IntCtx;
+use crate::thread::tss::esp0;
 
 use self::reg::KernelCtx;
 
@@ -29,6 +30,8 @@ pub mod user;
 pub mod tss;
 
 pub type Routine = extern "C" fn(args: usize);
+pub type Entry = extern "C" fn(rt: Routine, args: usize);
+
 pub const DEFAULT_PRIORITY: u8 = 32;
 pub const MAIN_PRIORITY: u8 = DEFAULT_PRIORITY;
 
@@ -79,6 +82,7 @@ pub struct PCB {
     elapsed_ticks: u32,
     name_len: u8,
     name_buf: [u8; 16],
+    user: bool,
     magic: u32,
 }
 
@@ -111,7 +115,7 @@ impl PCB {
         p
     }
 
-    pub fn init(&mut self, rt: Routine, arg: usize) {
+    pub fn init(&mut self, entry: Entry, rt: Routine, arg: usize) {
         self.stack -= core::mem::size_of::<crate::thread::reg::IntCtx>();
         self.stack -= core::mem::size_of::<crate::thread::reg::KernelCtx>();
         let k_ctx = self.kernel_ctx();
@@ -122,7 +126,13 @@ impl PCB {
         k_ctx.arg = arg as u32;
     }
 
+    #[inline]
     fn kernel_ctx(&self) -> &'static mut KernelCtx {
+        cst!(self.stack)
+    }
+
+    #[inline]
+    fn int_ctx(&self) -> &'static mut IntCtx {
         cst!(self.stack)
     }
 
@@ -157,7 +167,7 @@ pub fn current_pcb() -> &'static mut PCB {
 pub fn new_thread(rt: Routine, args: usize, name: &str, priority: u8) {
     let pcb_off = pg_alloc(Pool::KERNEL, 1).unwrap();
     let pcb = PCB::new(name, priority, pcb_off);
-    pcb.init(rt, args);
+    pcb.init(entry, rt, args);
     ready().append(pcb);
     all().append(pcb);
 }
@@ -212,5 +222,9 @@ pub fn schedule(reason: &str) {
     n.status = Status::Running;
 
     debug!("switch from {} to {} reason = {}", cur.name(), n.name(), reason);
+
+    if n.user {
+        *esp0() = (n.off() + PCB_SIZE) as u32;
+    }
     switch(cur.off(), n.off());
 }

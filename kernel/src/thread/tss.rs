@@ -71,6 +71,10 @@ impl TSS for [u32] {
 const GDT_OFF: usize = 0x800 + 8;
 const GDT_LEN: usize = 8;
 
+pub fn esp0() -> &'static mut u32 {
+    tss().esp0_mut()
+}
+
 pub fn init() {
     let tss = tss();
     *tss.ss0_mut() = SELECTOR_K_DATA as u32;

@@ -162,7 +162,7 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
    push dword %1
    push esp
    call [int_rust]       ; call rust interrupt handler
-   add  esp, 8
+   add  esp, 4
    jmp int_exit
 
 %endmacro
@@ -171,6 +171,7 @@ int_%1_entry:		 ; 每个中断处理程序都要压入中断向量号,所以一�
 ;;; IDT_CODE ;;;
 
 int_exit:
+   add esp, 4
    popad
    pop gs
    pop fs

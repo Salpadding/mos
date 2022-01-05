@@ -95,12 +95,11 @@ pub extern "C" fn _start() {
 
         // increase interrupt frequency
         crate::timer::init();
+        crate::thread::user::create(th_print_d, 0, "th0", 1);
 
         // enable interrupt
         asm::sti();
 
-        crate::thread::new_thread(th_print_d, 0, "th0", 1);
-        crate::thread::new_thread(th_print_d, 2, "th1", 1);
         bk!();
     }
 }
