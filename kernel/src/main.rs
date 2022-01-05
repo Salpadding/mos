@@ -95,7 +95,7 @@ pub extern "C" fn _start() {
 
         // increase interrupt frequency
         crate::timer::init();
-        crate::thread::user::create(th_print_d, 0, "th0", 1);
+        crate::thread::user::create(th_print_d, 1, "th0", 1);
 
         // enable interrupt
         asm::sti();
@@ -107,7 +107,7 @@ pub extern "C" fn _start() {
 extern "C" fn th_print_d(d: usize) {
         // println!("before init locked");
     loop {
-        print!("{:02X} ", d);
+        c_println!("{:02X} ", d);
     }
 }
 

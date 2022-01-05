@@ -12,7 +12,7 @@ use crate::thread::tss::esp0;
 
 use self::reg::KernelCtx;
 
-pub const DEBUG: bool = true;
+pub const DEBUG: bool = false;
 
 macro_rules! debug {
     ($($arg:tt)*) => {
