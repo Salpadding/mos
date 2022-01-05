@@ -2,5 +2,5 @@
 # https://rust-lang.github.io/rustup/overrides.html
 
 [toolchain]
-channel = "nightly-2021-12-09"
+channel = "nightly"
 components = [ "rust-src", "rust-std", "rustc", "cargo" ]

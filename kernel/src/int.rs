@@ -1,6 +1,6 @@
 use crate::thread::current_pcb;
 use crate::thread::reg::IntCtx;
-use crate::{asm, panic, println, put_char, print};
+use crate::{asm, panic, println, print};
 use crate::asm::SELECTOR_K_CODE;
 use crate::vga::{next_line, VGA_COL};
 
@@ -53,10 +53,6 @@ extern "C" fn int_entry(esp: u32) {
     // crate::vga::next_line();
     if vec < 20 {
         println!("EXCEPTION: {}", EXCEPTIONS[vec as usize]);
-
-        if vec == 13 {
-            IntCtx::debug(ctx as *const _);
-        }
         loop {}
     }
 

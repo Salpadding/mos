@@ -1,27 +1,46 @@
-use crate::asm::{out_b, in_b};
+use crate::asm::{in_b, out_b};
 use crate::thread::sync::Lock;
 use core::fmt;
 use core::fmt::Write;
 
 const VGA_START: usize = 0xb8000;
-const VGA_WORDS: usize = 0x4000;
 const VGA_LINES: usize = 25;
 const VGA_COLS: usize = 80;
+const VGA_WORDS: usize = VGA_COLS * VGA_LINES;
 
 pub static mut VGA_COL: usize = 0;
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::vga::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => {
+        {
+            let lock = $crate::vga::vga_lock();
+            let gd = lock.map(|x| x.lock());
+            $crate::vga::_print_unsafe(format_args!($($arg)*));
+        }
+
+    };
 }
 
 #[macro_export]
 macro_rules! println {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => {
-        $crate::vga::_print(format_args!($($arg)*));
-        $crate::vga::put_char(b'\n');
+        {
+            let lock = $crate::vga::vga_lock();
+            let gd = lock.map(|x| x.lock());
+            $crate::vga::_print_unsafe(format_args!($($arg)*));
+            $crate::vga::next_line();
+        }
     };
+}
+
+pub fn vga_lock() -> Option<&'static mut Lock> {
+    if unsafe { VGA_LOCK_REF == 0 } {
+        None
+    } else {
+        Some(cst!(VGA_LOCK_REF))
+    }
 }
 
 struct Writer {}
@@ -33,11 +52,13 @@ impl fmt::Write for Writer {
     }
 }
 
-pub fn _print(args: fmt::Arguments) {
+#[inline]
+pub fn _print_unsafe(args: fmt::Arguments) {
     let mut w = Writer {};
-    w.write_fmt(args);
+    w.write_fmt(args).unwrap();
 }
 
+#[inline]
 pub fn buf() -> &'static mut [u16] {
     unsafe { core::slice::from_raw_parts_mut(VGA_START as *mut _, VGA_WORDS) }
 }
@@ -66,18 +87,15 @@ pub fn next_line() {
 
 #[no_mangle]
 pub fn puts(s: &str) {
-    for c in s.as_bytes().iter() {
-        put_char(*c);
+    let bytes = s.as_bytes();
+    let len = s.len();
+    for i in 0..len {
+        put_char(bytes[i]);
     }
 }
 
 pub static mut VGA_LOCK: [u8; 256] = [0u8; 256];
 pub static mut VGA_LOCK_REF: usize = 0;
-pub static mut THREAD_INIT: bool = false;
-
-pub fn vga_lock() -> &'static mut Lock {
-    cst!(VGA_LOCK_REF)
-}
 
 const PORT: u16 = 0x3f8;
 
@@ -97,8 +115,6 @@ pub fn init_com1() {
 
 #[no_mangle]
 pub fn put_char(c: u8) {
-    // while crate::asm::in_b(PORT + 5) & 0x20 == 0 {}
-    // out_b(PORT, c);
     let vga = buf();
 
     if c == b'\n' {

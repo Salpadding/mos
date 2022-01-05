@@ -1,20 +1,45 @@
 use rlib::link::LinkedList;
 
 use crate::int::{disable_int, set_int};
-use crate::{println, put_char, puts};
-use crate::thread::{current_pcb, PCB, schedule, Status};
 use crate::thread::data::{all, ready};
+use crate::thread::{current_pcb, schedule, Status, PCB};
+use crate::{c_println, print, println };
 
-
+#[repr(C)]
 pub struct Semaphore {
     value: u32,
     waiters: &'static mut LinkedList<PCB>,
 }
 
+#[repr(C)]
 pub struct Lock {
     holder: Option<&'static PCB>,
     sem: Semaphore,
     repeats: u32,
+}
+
+pub struct Guard {
+    lock: usize,
+}
+
+impl Drop for Guard {
+    fn drop(&mut self) {
+        self.unlock();
+    }
+}
+
+impl Guard {
+    pub fn unlock(&mut self) {
+        let p = self.lock;
+        self.lock = 0;
+
+        if p == 0 {
+            return;
+        }
+
+        let l: &'static mut Lock = cst!(p);
+        l.unlock();
+    }
 }
 
 impl Lock {
@@ -31,22 +56,27 @@ impl Lock {
     }
 
     #[no_mangle]
-    pub fn lock(&mut self) {
+    pub fn lock(&mut self) -> Guard {
         let cur = current_pcb();
 
         if self.holder.is_some() && self.holder.as_ref().unwrap().off() == cur.off() {
             self.repeats += 1;
-            return;
+            return Guard { lock: self as *const _ as usize };
         }
         self.sem.p();
         self.holder = Some(cur);
         self.repeats += 1;
+        return Guard { lock: self as *const _ as usize };
     }
 
     #[no_mangle]
     pub fn unlock(&mut self) {
         let cur = current_pcb();
-        assert_eq!(self.holder.as_ref().unwrap().off(), cur.off(), "unlock without lock");
+        assert_eq!(
+            self.holder.as_ref().unwrap().off(),
+            cur.off(),
+            "unlock without lock"
+        );
 
         if self.repeats > 1 {
             self.repeats -= 1;
@@ -69,7 +99,10 @@ impl Semaphore {
         let cur = current_pcb();
         debug!("{}: p()", cur.name());
         while self.value == 0 {
-            assert!(!self.waiters.raw_iter().any(|x| x == cur.off()), "duplicate p op");
+            assert!(
+                !self.waiters.raw_iter().any(|x| x == cur.off()),
+                "duplicate p op"
+            );
             self.waiters.append(cur);
             debug!("{}: block", cur.name());
             block(Status::Blocked);
@@ -99,7 +132,6 @@ impl Semaphore {
     }
 }
 
-
 pub fn block(status: Status) {
     assert!(status == Status::Blocked || status == Status::Waiting || status == Status::Hanging);
     let old = disable_int();
@@ -112,7 +144,11 @@ pub fn block(status: Status) {
 pub fn unblock(pcb: &'static mut PCB) {
     let old = disable_int();
     let off = { pcb.off() };
-    assert!(pcb.status == Status::Blocked || pcb.status == Status::Waiting || pcb.status == Status::Hanging);
+    assert!(
+        pcb.status == Status::Blocked
+            || pcb.status == Status::Waiting
+            || pcb.status == Status::Hanging
+    );
 
     if pcb.status == Status::Ready {
         set_int(old);
@@ -120,7 +156,10 @@ pub fn unblock(pcb: &'static mut PCB) {
     }
 
     let rd = ready();
-    assert!(!rd.raw_iter().any(|x| x == off), "target thread not blocked");
+    assert!(
+        !rd.raw_iter().any(|x| x == off),
+        "target thread not blocked"
+    );
     pcb.status = Status::Ready;
     rd.push_head(pcb);
     set_int(old);

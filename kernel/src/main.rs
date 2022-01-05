@@ -10,10 +10,7 @@
 
 use core::panic::PanicInfo;
 
-use vga::{put_char, puts};
-
-use crate::mem::Pool;
-use crate::vga::vga_lock;
+use crate::{mem::Pool, vga::{VGA_LOCK_REF, put_char}};
 
 static mut I: u64 = 0;
 const LOOP_CNT: u64 = 1 << 12;
@@ -59,12 +56,12 @@ extern "C" fn eh_personality() {}
 
 mod asm;
 mod err;
+mod init;
 mod int;
 mod mem;
 mod thread;
 mod timer;
 mod vga;
-mod init;
 
 /// The name **must be** `_start`, otherwise the compiler doesn't output anything
 /// to the object file. I don't know why it is like this.
@@ -75,69 +72,45 @@ pub extern "C" fn _start() {
 
     if !*page_enabled() {
         crate::vga::init_com1();
-        crate::init::init_statics();
+        c_println!("_start = 0x{:08X}", _start as usize);
+        c_println!("vga lock addr = 0x{:08X}", unsafe { &VGA_LOCK_REF as *const _ as usize });
+        // c_println!("vga lock = {:?}", vga_lock().is_none());
+        // c_println!("init page");
         asm::init();
+        c_println!("asm init()");
         // setup page, page allocator, init thread pcb, jump to _start()
         *page_enabled() = true;
-        println!("init page");
+        c_println!("paged enabled = true");
         crate::thread::tss::init();
+        c_println!("tss init");
         crate::mem::init_page();
     } else {
+        c_println!("_start = 0x{:08X}", _start as usize);
         // load interrupt descriptor table
         int::init();
 
         // add main thread into list, register scheduler
         crate::thread::init();
-        unsafe { vga::THREAD_INIT = true };
-
-        println!("thread init success");
+        crate::init::init_locks();
 
         // increase interrupt frequency
         crate::timer::init();
 
-        // crate::thread::new_thread(th_print_d, 0, "th0", 1);
-        // crate::thread::new_thread(th_print_d, 2, "th1", 1);
-
         // enable interrupt
         asm::sti();
-        loop {}
+
+        crate::thread::new_thread(th_print_d, 0, "th0", 1);
+        crate::thread::new_thread(th_print_d, 2, "th1", 1);
+        bk!();
     }
 }
-
-static s1: &'static str = "argA ";
-static s2: &'static str = "argB ";
 
 extern "C" fn th_print_d(d: usize) {
-    let lock = vga_lock();
-    loop {
         // println!("before init locked");
-        lock.lock();
-        print!("{:02X}", d);
-        // println!("before init unlock");
-        lock.unlock();
-        // println!("init unlocked");
-    }
-}
-
-extern "C" fn th_print(p: usize) {
     loop {
-        let mut chars = p as *const u8;
-
-        loop {
-            unsafe {
-                let c = *chars;
-                chars = chars.add(1);
-
-                put_char(c);
-
-                if c == b' ' {
-                    break;
-                }
-            }
-        }
+        print!("{:02X} ", d);
     }
 }
-
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {

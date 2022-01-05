@@ -1,4 +1,5 @@
-use crate::println;
+use core::fmt;
+use core::fmt::Write;
 
 pub const ASM_BUF_OFF: usize = 4096;
 pub const ASM_BUF_LEN: usize = 64;
@@ -167,4 +168,46 @@ impl GdtPtr {
         let n = sz / 8;
         unsafe { core::slice::from_raw_parts_mut(self.gdt_base as *mut _, n) }
     }
+}
+
+const PORT: u16 = 0x3f8;
+
+pub fn out_c(c: u8) {
+    while crate::asm::in_b(PORT + 5) & 0x20 == 0 {}
+    out_b(PORT, c);
+}
+
+pub fn out_s(s: &str) {
+    for c in s.as_bytes() {
+        out_c(*c);
+    }
+}
+
+struct Writer {}
+
+impl fmt::Write for Writer {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        out_s(s);
+        Ok(())
+    }
+}
+
+pub fn _print(args: fmt::Arguments) {
+    let mut w = Writer {};
+    w.write_fmt(args);
+}
+
+
+#[macro_export]
+macro_rules! c_print {
+    ($($arg:tt)*) => ($crate::asm::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! c_println {
+    () => ($crate::asm::out_b(b'\n'));
+    ($($arg:tt)*) => {
+        $crate::asm::_print(format_args!($($arg)*));
+        $crate::asm::out_c(b'\n');
+    };
 }

@@ -60,6 +60,7 @@ impl<T: 'static + Node> Iterator for Iter<T> {
 }
 
 #[derive(Default)]
+#[repr(C)]
 pub struct LinkedList<T: Node> {
     pub prev_i: u8,
     pub next_i: u8,

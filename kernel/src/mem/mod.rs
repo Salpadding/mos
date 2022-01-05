@@ -1,8 +1,8 @@
-pub use {alloc::pg_alloc, alloc::Pool, page::init_page, page::page_enabled};
 use rlib::bitmap::Bitmap;
+pub use {alloc::pg_alloc, alloc::Pool, page::init_page, page::page_enabled};
 
+use crate::mem::page::{static_alloc, PDE_START, PT_SIZE, RESERVED_MEM};
 use crate::{asm, println};
-use crate::mem::page::{PDE_START, PT_SIZE, RESERVED_MEM, static_alloc};
 
 mod alloc;
 mod page;
@@ -46,14 +46,18 @@ impl PagePool {
     }
 }
 
+// kernel physical memory pool
 fn kernel_pool() -> &'static mut PagePool {
     cast!(PagePool, 0)
 }
 
+
+// user physical memory pool
 fn user_pool() -> &'static mut PagePool {
     cast!(PagePool, BUF_ST_SIZE)
 }
 
+// kernel virtual memory pool
 fn v_pool() -> &'static mut VPool {
     cast!(VPool, BUF_ST_SIZE * 2)
 }
@@ -107,6 +111,7 @@ pub fn debug() {
 }
 
 pub fn init() {
+    // initialize bitmap
     unsafe {
         BUF = static_alloc(1, true).unwrap();
     }
