@@ -11,6 +11,7 @@ pub const PT_SIZE: usize = PE_SIZE * PT_LEN;
 pub const OS_MEM_OFF: usize = 0xc0000000;
 pub const RESERVED_MEM: usize = 5 << 20;
 pub const USER_V_START: usize = 8 << 20;
+pub const DEFAULT_PT_ATTR: u16 = 7;
 
 // 1m area for page
 pub const PAGE_AREA_SIZE: usize = 1024 * 1024;
@@ -26,7 +27,7 @@ static mut PD_USED: usize = 0;
 
 
 
-fn page_dir(off: usize) -> PageTable {
+pub fn page_dir(off: usize) -> PageTable {
     unsafe { core::slice::from_raw_parts_mut(off as *mut _, PT_LEN) }
 }
 
@@ -50,8 +51,9 @@ impl VirtualAddress for usize {
 pub type PageTable = &'static mut [PageTableEntry];
 
 #[repr(transparent)]
+#[derive(Clone, Copy)]
 pub struct PageTableEntry {
-    data: usize,
+    pub data: usize,
 }
 
 impl PageTableEntry {
@@ -155,11 +157,15 @@ pub fn init_page() {
     fill_zero(PDE_START, PT_SIZE);
 
     for i in 0..(RESERVED_MEM + KERNEL_MEM) / PAGE_SIZE {
-        map_page(i * PAGE_SIZE, i * PAGE_SIZE, 7, false, false).unwrap();
+        map_page(i * PAGE_SIZE, i * PAGE_SIZE, DEFAULT_PT_ATTR, false, false).unwrap();
     }
     for i in 0..RESERVED_MEM / PAGE_SIZE {
-        map_page(OS_MEM_OFF + i * PAGE_SIZE, i * PAGE_SIZE, 7, false, false).unwrap();
+        map_page(OS_MEM_OFF + i * PAGE_SIZE, i * PAGE_SIZE, DEFAULT_PT_ATTR, false, false).unwrap();
     }
+
+    // loopback page directory
+    let pd = page_dir(PDE_START);
+    pd[PT_LEN - 1] = PageTableEntry::new(PDE_START, DEFAULT_PT_ATTR);
 
     let init_off = static_alloc(PCB_PAGES, true).unwrap();
     // init process

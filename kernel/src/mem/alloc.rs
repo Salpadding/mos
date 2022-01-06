@@ -2,7 +2,7 @@ use rlib::bitmap::Bitmap;
 
 use crate::err::SE;
 use crate::mem::{fill_zero, k_lock, kernel_pool, PAGE_SIZE, PagePool, u_lock, user_pool, v_pool, VPool};
-use crate::mem::page::map_page;
+use crate::mem::page::{DEFAULT_PT_ATTR, map_page, page_dir, PDE_START, VirtualAddress};
 use crate::println;
 
 pub trait VAlloc {
@@ -50,16 +50,22 @@ impl PAlloc for PagePool {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum Pool {
     KERNEL,
     USER,
 }
 
+pub fn v2p(p: Pool, v: usize) -> usize {
+    assert_eq!(p, Pool::KERNEL, "kernel");
+    let pd = page_dir(PDE_START);
+    let pt = pd[v.pde_i()].sub_table();
+    (pt[v.pte_i()].data & 0xfffff000) | (v & 0xfff)
+}
 
-pub fn pg_alloc(p: Pool, pages: usize) -> Result<usize, SE> {
+pub fn pg_alloc(p: Pool, pages: usize, init: bool) -> Result<usize, SE> {
     let lk = if p == Pool::KERNEL { k_lock() } else { u_lock() };
-    let gd = lk.map(|x| x.lock());
+    let _gd = lk.map(|x| x.lock());
     if p != Pool::KERNEL {
         return Err("not implemented");
     }
@@ -76,8 +82,8 @@ pub fn pg_alloc(p: Pool, pages: usize) -> Result<usize, SE> {
     // physical memory is not required to be continuous
     // we should mapping between virtual address to physical page by page
     for i in 0..pages {
-        let p_a = pp.p_alloc(false)?;
-        map_page(v_start + i * PAGE_SIZE, p_a, 7, false, true)?;
+        let p_a = pp.p_alloc(init)?;
+        map_page(v_start + i * PAGE_SIZE, p_a, DEFAULT_PT_ATTR, false, true)?;
     }
 
     Ok(v_start)

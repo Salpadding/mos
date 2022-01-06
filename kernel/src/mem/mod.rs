@@ -5,8 +5,8 @@ use crate::mem::page::{static_alloc, PDE_START, PT_SIZE, RESERVED_MEM};
 use crate::{asm, println};
 use crate::thread::sync::Lock;
 
-mod alloc;
-mod page;
+pub mod alloc;
+pub mod page;
 
 pub static mut K_LOCK: [u8; 256] = [0u8; 256];
 pub static mut K_LOCK_REF: usize = 0;
@@ -43,9 +43,9 @@ static mut BIT_MAP: usize = 0;
 static mut BUF: usize = 0;
 
 /// pool of virtual address
-struct VPool {
-    bitmap: &'static mut [u8],
-    v_start: usize,
+pub struct VPool {
+    pub bitmap: &'static mut [u8],
+    pub v_start: usize,
 }
 
 macro_rules! cast {
@@ -57,15 +57,15 @@ macro_rules! cast {
     };
 }
 
-struct PagePool {
-    bitmap: &'static mut [u8],
-    total_pages: usize,
-    avl_pages: usize,
-    p_start: usize,
+pub struct PagePool {
+    pub bitmap: &'static mut [u8],
+    pub total_pages: usize,
+    pub avl_pages: usize,
+    pub p_start: usize,
 }
 
 impl PagePool {
-    fn size(&self) -> usize {
+    pub fn size(&self) -> usize {
         self.total_pages * PAGE_SIZE
     }
 }

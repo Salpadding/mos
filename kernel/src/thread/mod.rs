@@ -3,13 +3,15 @@ use rlib::link::{LinkedList, Node};
 
 use crate::asm::{switch, REG_CTX_LEN, SELECTOR_K_DATA};
 use crate::err::SE;
-use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE, PT_LEN};
+use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE, PT_LEN, VPool};
 use crate::thread::data::{all, ready};
 use crate::thread::Status::{Ready, Running};
 use crate::{print, println, Pool, c_println};
+use crate::mem::page::PDE_START;
 use crate::thread::reg::IntCtx;
 use crate::thread::tss::esp0;
 use crate::mem::PageTable;
+use crate::mem::PagePool;
 
 use self::reg::KernelCtx;
 
@@ -83,8 +85,12 @@ pub struct PCB {
     elapsed_ticks: u32,
     name_len: u8,
     name_buf: [u8; 16],
+
     // page directory, 0 for kernel thread
     pd: usize,
+
+    // virtual memory pool, for user process
+    v_pool: VPool,
     magic: u32,
 }
 
@@ -110,6 +116,7 @@ impl PCB {
         p.stack = off + PCB_SIZE;
         p.name_len = len as u8;
         p.name_buf[..len].copy_from_slice(&name.as_bytes()[..len]);
+        p.pd = 0;
         p.ticks = priority;
         p.priority = priority;
         p.status = Ready;
@@ -130,7 +137,7 @@ impl PCB {
 
     #[inline]
     pub fn user(&self) -> bool {
-        self.pd == 0
+        self.pd != 0
     }
 
     #[inline]
@@ -182,7 +189,7 @@ pub fn current_pcb() -> &'static mut PCB {
 }
 
 pub fn new_thread(rt: Routine, args: usize, name: &str, priority: u8) {
-    let pcb_off = pg_alloc(Pool::KERNEL, 1).unwrap();
+    let pcb_off = pg_alloc(Pool::KERNEL, 1, false).unwrap();
     let pcb = PCB::new(name, priority, pcb_off);
     pcb.init(entry, rt, args);
     ready().append(pcb);
@@ -239,6 +246,12 @@ pub fn schedule(reason: &str) {
     n.status = Status::Running;
 
     debug!("switch from {} to {} reason = {}", cur.name(), n.name(), reason);
+
+    let pd: usize = if n.user() { n.pd } else { PDE_START };
+
+    unsafe {
+        asm!("mov cr3, {}", in(reg) pd);
+    }
 
     if n.user() {
         *esp0() = (n.off() + PCB_SIZE) as u32;

@@ -9,6 +9,8 @@
 #![feature(unchecked_math)]
 
 use core::panic::PanicInfo;
+use crate::mem::alloc::v2p;
+use crate::mem::page::OS_MEM_OFF;
 
 use crate::mem::Pool;
 
@@ -80,6 +82,8 @@ pub extern "C" fn _start() {
         // enable interrupt
         asm::sti();
 
+        let v = OS_MEM_OFF + (4 << 20);
+        println!("v2p of 0x{:08X} = 0x{:08X}", v, v2p(Pool::KERNEL, v));
         bk!();
     }
 }
