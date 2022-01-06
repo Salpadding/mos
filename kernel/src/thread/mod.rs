@@ -87,7 +87,7 @@ pub struct PCB {
     name_buf: [u8; 16],
 
     // page directory, 0 for kernel thread
-    pd: usize,
+    pub pd: usize,
 
     // virtual memory pool, for user process
     v_pool: VPool,
@@ -171,6 +171,10 @@ impl PCB {
         self.off() + PCB_SIZE
     }
 
+    pub fn v_pool(&mut self) -> &mut VPool {
+        &mut self.v_pool
+    }
+
     pub fn page_dir(&self) -> Option<PageTable> {
         if self.pd == 0 { None }  else {
             Some(
@@ -189,7 +193,7 @@ pub fn current_pcb() -> &'static mut PCB {
 }
 
 pub fn new_thread(rt: Routine, args: usize, name: &str, priority: u8) {
-    let pcb_off = pg_alloc(Pool::KERNEL, 1, false).unwrap();
+    let pcb_off = pg_alloc(Pool::KERNEL, 1, true).unwrap();
     let pcb = PCB::new(name, priority, pcb_off);
     pcb.init(entry, rt, args);
     ready().append(pcb);

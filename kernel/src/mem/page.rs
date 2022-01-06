@@ -100,8 +100,8 @@ pub fn static_alloc(pages: usize, init: bool) -> Result<usize, SE> {
 }
 
 // map
-pub fn map_page(v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Result<(), SE> {
-    let pd = page_dir(PDE_START);
+pub fn map_page(pde: usize, v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Result<(), SE> {
+    let pd = page_dir(pde);
     let pde_i = v.pde_i();
 
     if trace {
@@ -157,10 +157,10 @@ pub fn init_page() {
     fill_zero(PDE_START, PT_SIZE);
 
     for i in 0..(RESERVED_MEM + KERNEL_MEM) / PAGE_SIZE {
-        map_page(i * PAGE_SIZE, i * PAGE_SIZE, DEFAULT_PT_ATTR, false, false).unwrap();
+        map_page(PDE_START, i * PAGE_SIZE, i * PAGE_SIZE, DEFAULT_PT_ATTR, false, false).unwrap();
     }
     for i in 0..RESERVED_MEM / PAGE_SIZE {
-        map_page(OS_MEM_OFF + i * PAGE_SIZE, i * PAGE_SIZE, DEFAULT_PT_ATTR, false, false).unwrap();
+        map_page(PDE_START, OS_MEM_OFF + i * PAGE_SIZE, i * PAGE_SIZE, DEFAULT_PT_ATTR, false, false).unwrap();
     }
 
     // loopback page directory
