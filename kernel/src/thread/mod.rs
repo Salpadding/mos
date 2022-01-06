@@ -3,12 +3,13 @@ use rlib::link::{LinkedList, Node};
 
 use crate::asm::{switch, REG_CTX_LEN, SELECTOR_K_DATA};
 use crate::err::SE;
-use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE};
+use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE, PT_LEN};
 use crate::thread::data::{all, ready};
 use crate::thread::Status::{Ready, Running};
 use crate::{print, println, Pool, c_println};
 use crate::thread::reg::IntCtx;
 use crate::thread::tss::esp0;
+use crate::mem::PageTable;
 
 use self::reg::KernelCtx;
 
@@ -82,7 +83,8 @@ pub struct PCB {
     elapsed_ticks: u32,
     name_len: u8,
     name_buf: [u8; 16],
-    user: bool,
+    // page directory, 0 for kernel thread
+    pd: usize,
     magic: u32,
 }
 
@@ -127,6 +129,11 @@ impl PCB {
     }
 
     #[inline]
+    pub fn user(&self) -> bool {
+        self.pd == 0
+    }
+
+    #[inline]
     fn kernel_ctx(&self) -> &'static mut KernelCtx {
         cst!(self.stack)
     }
@@ -155,6 +162,16 @@ impl PCB {
 
     pub fn stack_off(&self) -> usize {
         self.off() + PCB_SIZE
+    }
+
+    pub fn page_dir(&self) -> Option<PageTable> {
+        if self.pd == 0 { None }  else {
+            Some(
+                unsafe {
+                    core::slice::from_raw_parts_mut(self.pd as *mut _, PT_LEN)
+                }
+            )
+        }
     }
 }
 
@@ -223,7 +240,7 @@ pub fn schedule(reason: &str) {
 
     debug!("switch from {} to {} reason = {}", cur.name(), n.name(), reason);
 
-    if n.user {
+    if n.user() {
         *esp0() = (n.off() + PCB_SIZE) as u32;
     }
     switch(cur.off(), n.off());

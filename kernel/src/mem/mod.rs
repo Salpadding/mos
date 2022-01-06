@@ -1,11 +1,35 @@
 use rlib::bitmap::Bitmap;
-pub use {alloc::pg_alloc, alloc::Pool, page::init_page, page::page_enabled};
+pub use {alloc::pg_alloc, alloc::Pool, page::init_page, page::page_enabled, page::PageTable, page::PT_LEN};
 
 use crate::mem::page::{static_alloc, PDE_START, PT_SIZE, RESERVED_MEM};
 use crate::{asm, println};
+use crate::thread::sync::Lock;
 
 mod alloc;
 mod page;
+
+pub static mut K_LOCK: [u8; 256] = [0u8; 256];
+pub static mut K_LOCK_REF: usize = 0;
+
+pub static mut U_LOCK: [u8; 256] = [0u8; 256];
+pub static mut U_LOCK_REF: usize = 0;
+
+
+pub fn k_lock() -> Option<&'static mut Lock> {
+    if unsafe { K_LOCK_REF == 0 } {
+        None
+    } else {
+        Some(cst!(K_LOCK_REF))
+    }
+}
+
+pub fn u_lock() -> Option<&'static mut Lock> {
+    if unsafe { U_LOCK_REF == 0 } {
+        None
+    } else {
+        Some(cst!(U_LOCK_REF))
+    }
+}
 
 const KERNEL_MEM: usize = 3 << 20;
 pub const PAGE_SIZE: usize = 4 * 1024;

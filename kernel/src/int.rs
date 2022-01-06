@@ -1,6 +1,6 @@
 use crate::thread::current_pcb;
 use crate::thread::reg::IntCtx;
-use crate::{asm, panic, println, print};
+use crate::{asm, panic, println, print, c_println};
 use crate::asm::SELECTOR_K_CODE;
 use crate::vga::{next_line, VGA_COL};
 
@@ -14,7 +14,6 @@ static mut IDT_PTR: IdtPtr = IdtPtr { size: 0, off: 0 };
 static mut IDT: [u64; ENTRY_SIZE] = [0; ENTRY_SIZE];
 static mut HANDLERS: [usize; ENTRY_SIZE] = [0; ENTRY_SIZE];
 
-static mut COUNTER: u32 = 0;
 
 pub static EXCEPTIONS: &[&'static str] = &[
     "#DE Divide Error",
@@ -52,7 +51,7 @@ extern "C" fn int_entry(esp: u32) {
     // println!("m\n");
     // crate::vga::next_line();
     if vec < 20 {
-        println!("EXCEPTION: {}", EXCEPTIONS[vec as usize]);
+        c_println!("EXCEPTION: {}", EXCEPTIONS[vec as usize]);
         loop {}
     }
 

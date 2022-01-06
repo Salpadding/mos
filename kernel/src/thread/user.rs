@@ -37,7 +37,7 @@ pub fn create(rt: Routine, args: usize, name: &str, priority: u8) {
     let pcb = PCB::new(name, priority, pcb_off);
     pcb.init(entry, rt, args);
     // mark as user process
-    pcb.user = true;
+    // pcb.pd = pg_alloc(Pool::KERNEL, 1).unwrap();
 
     let old = disable_int();
     ready().append(pcb);

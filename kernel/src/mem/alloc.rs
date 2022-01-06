@@ -1,7 +1,7 @@
 use rlib::bitmap::Bitmap;
 
 use crate::err::SE;
-use crate::mem::{fill_zero, kernel_pool, PAGE_SIZE, PagePool, user_pool, v_pool, VPool};
+use crate::mem::{fill_zero, k_lock, kernel_pool, PAGE_SIZE, PagePool, u_lock, user_pool, v_pool, VPool};
 use crate::mem::page::map_page;
 use crate::println;
 
@@ -58,6 +58,8 @@ pub enum Pool {
 
 
 pub fn pg_alloc(p: Pool, pages: usize) -> Result<usize, SE> {
+    let lk = if p == Pool::KERNEL { k_lock() } else { u_lock() };
+    let gd = lk.map(|x| x.lock());
     if p != Pool::KERNEL {
         return Err("not implemented");
     }

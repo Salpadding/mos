@@ -47,10 +47,10 @@ impl VirtualAddress for usize {
     }
 }
 
-type PageTable = &'static mut [PageTableEntry];
+pub type PageTable = &'static mut [PageTableEntry];
 
 #[repr(transparent)]
-struct PageTableEntry {
+pub struct PageTableEntry {
     data: usize,
 }
 
