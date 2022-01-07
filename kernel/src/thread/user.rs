@@ -1,9 +1,11 @@
+use rlib::bitmap::Bitmap;
+
+use crate::{c_println, Pool, println, v2p};
 use crate::asm::{SELECTOR_U_CODE, SELECTOR_U_DATA};
 use crate::int::{disable_int, set_int};
 use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc, PT_LEN};
-use crate::mem::page::{DEFAULT_PT_ATTR, OS_MEM_OFF, page_dir, PageTableEntry, PDE_START, USER_V_START};
-use crate::{Pool, println, v2p};
 use crate::mem::alloc::alloc_one;
+use crate::mem::page::{DEFAULT_PT_ATTR, OS_MEM_OFF, page_dir, PageTableEntry, PDE_START, USER_V_START};
 use crate::thread::{current_pcb, PCB, Routine};
 use crate::thread::data::{all, ready};
 use crate::thread::reg::{IntCtx, KernelCtx};
@@ -21,7 +23,9 @@ pub extern "C" fn entry(rt: Routine, args: usize) {
     ctx.es = ctx.ss;
     ctx.eip = rt as usize as u32;
     ctx.cs = SELECTOR_U_CODE as u32;
-    ctx.esp = alloc_one(Pool::USER, OS_MEM_OFF - (1 << 20), true).unwrap() as u32;
+    println!("before alloc one");
+    ctx.esp = alloc_one(Pool::USER, OS_MEM_OFF - PAGE_SIZE, true).unwrap() as u32;
+    println!("after alloc one");
     ctx.e_flags = USER_E_FLAGS;
     ctx.esp += (PAGE_SIZE * USER_PAGES) as u32;
     ctx.esp -= 4;
@@ -42,12 +46,11 @@ pub fn create(rt: Routine, args: usize, name: &str, priority: u8) {
     // initialize v start
     pcb.v_pool.v_start = USER_V_START;
     let bits_bytes = (OS_MEM_OFF - USER_V_START) / PAGE_SIZE / 8;
-    let p = bits_bytes / PAGE_SIZE;
+    let p = bits_bytes / PAGE_SIZE + (if bits_bytes % PAGE_SIZE == 0 { 0 } else { 1 });
     let bit_map = pg_alloc(Pool::KERNEL, p, true).unwrap();
     pcb.v_pool.bitmap = unsafe {
         core::slice::from_raw_parts_mut(bit_map as *mut _, p * PAGE_SIZE)
     };
-
 
     // create page directory
     pcb.pd = v2p(Pool::KERNEL, pg_alloc(Pool::KERNEL, 1, true).unwrap());
@@ -55,8 +58,6 @@ pub fn create(rt: Routine, args: usize, name: &str, priority: u8) {
     pd.copy_from_slice(page_dir(PDE_START));
     // loopback page table entry
     pd[PT_LEN - 1] = PageTableEntry::new(pcb.pd, DEFAULT_PT_ATTR);
-
-
 
 
     let old = disable_int();

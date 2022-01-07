@@ -100,18 +100,19 @@ pub fn static_alloc(pages: usize, init: bool) -> Result<usize, SE> {
 }
 
 // map
-pub fn map_page(pde: usize, v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Result<(), SE> {
-    let pd = page_dir(pde);
+pub fn map_page(pd: usize, v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Result<(), SE> {
+    let pd = page_dir(pd);
     let pde_i = v.pde_i();
 
     if trace {
         println!("map 0x{:08X} to 0x{:08X}", v, p);
         println!("pd {} exists = {}", pde_i, pd[pde_i].exists());
     }
+
     if !pd[pde_i].exists() {
         let k = kernel_pool();
         let buf = if alloc {
-            k.p_alloc(true)?
+            k.p_alloc()?
         } else {
             static_alloc(1, true)?
         };
@@ -119,9 +120,16 @@ pub fn map_page(pde: usize, v: usize, p: usize, flags: u16, trace: bool, alloc: 
             println!("create buf 0x{:08X}", buf);
         }
         pd[pde_i] = PageTableEntry::new(buf, flags);
+
+        if alloc {
+            fill_zero((PT_LEN - 1) << 22 | pde_i << 12, PAGE_SIZE);
+        }
     }
 
-    let pt = pd[pde_i].sub_table();
+    let pt = if alloc {
+        // access physical memory by loopback
+        page_dir((PT_LEN - 1) << 22 | pde_i << 12)
+    } else { pd[pde_i].sub_table() };
 
     if trace {
         println!("pte i = {}", v.pte_i());
