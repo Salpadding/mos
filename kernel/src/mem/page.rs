@@ -24,10 +24,10 @@ pub const BUF_UPPER_BOUND: usize = 0x80000;
 // for static alloc before page setup
 static mut PD_USED: usize = 0;
 
+pub const LOOP_BACK_PD: usize = 0xfffff00;
 
 
-
-pub fn page_dir(off: usize) -> PageTable {
+pub fn page_table(off: usize) -> PageTable {
     unsafe { core::slice::from_raw_parts_mut(off as *mut _, PT_LEN) }
 }
 
@@ -101,7 +101,7 @@ pub fn static_alloc(pages: usize, init: bool) -> Result<usize, SE> {
 
 // map
 pub fn map_page(pd: usize, v: usize, p: usize, flags: u16, trace: bool, alloc: bool) -> Result<(), SE> {
-    let pd = page_dir(pd);
+    let pd = page_table(pd);
     let pde_i = v.pde_i();
 
     if trace {
@@ -128,7 +128,7 @@ pub fn map_page(pd: usize, v: usize, p: usize, flags: u16, trace: bool, alloc: b
 
     let pt = if alloc {
         // access physical memory by loopback
-        page_dir((PT_LEN - 1) << 22 | pde_i << 12)
+        page_table((PT_LEN - 1) << 22 | pde_i << 12)
     } else { pd[pde_i].sub_table() };
 
     if trace {
@@ -172,7 +172,7 @@ pub fn init_page() {
     }
 
     // loopback page directory
-    let pd = page_dir(PDE_START);
+    let pd = page_table(PDE_START);
     pd[PT_LEN - 1] = PageTableEntry::new(PDE_START, DEFAULT_PT_ATTR);
 
     let init_off = static_alloc(PCB_PAGES, true).unwrap();

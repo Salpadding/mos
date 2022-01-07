@@ -77,7 +77,7 @@ pub extern "C" fn _start() {
 
         // increase interrupt frequency
         crate::timer::init();
-        crate::thread::user::create(th_print_d, 1, "th0", 1);
+        crate::thread::user::create(th_print_d, 15, "th0", 0xff);
 
         // enable interrupt
         asm::sti();

@@ -5,7 +5,7 @@ use crate::asm::{SELECTOR_U_CODE, SELECTOR_U_DATA};
 use crate::int::{disable_int, set_int};
 use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc, PT_LEN};
 use crate::mem::alloc::alloc_one;
-use crate::mem::page::{DEFAULT_PT_ATTR, OS_MEM_OFF, page_dir, PageTableEntry, PDE_START, USER_V_START};
+use crate::mem::page::{DEFAULT_PT_ATTR, OS_MEM_OFF, page_table, PageTableEntry, PDE_START, USER_V_START};
 use crate::thread::{current_pcb, PCB, Routine};
 use crate::thread::data::{all, ready};
 use crate::thread::reg::{IntCtx, KernelCtx};
@@ -13,6 +13,8 @@ use crate::thread::reg::{IntCtx, KernelCtx};
 const USER_PAGES: usize = 1;
 const USER_E_FLAGS: u32 = (1 << 1) | (1 << 9);
 
+// 1. page directory is in user state
+// 2. privilege level is 0
 pub extern "C" fn entry(rt: Routine, args: usize) {
     let cur = current_pcb();
     cur.stack += core::mem::size_of::<KernelCtx>();
@@ -23,9 +25,7 @@ pub extern "C" fn entry(rt: Routine, args: usize) {
     ctx.es = ctx.ss;
     ctx.eip = rt as usize as u32;
     ctx.cs = SELECTOR_U_CODE as u32;
-    println!("before alloc one");
     ctx.esp = alloc_one(Pool::USER, OS_MEM_OFF - PAGE_SIZE, true).unwrap() as u32;
-    println!("after alloc one");
     ctx.e_flags = USER_E_FLAGS;
     ctx.esp += (PAGE_SIZE * USER_PAGES) as u32;
     ctx.esp -= 4;
@@ -54,8 +54,8 @@ pub fn create(rt: Routine, args: usize, name: &str, priority: u8) {
 
     // create page directory
     pcb.pd = v2p(Pool::KERNEL, pg_alloc(Pool::KERNEL, 1, true).unwrap());
-    let mut pd = pcb.page_dir().unwrap();
-    pd.copy_from_slice(page_dir(PDE_START));
+    let pd = pcb.page_dir().unwrap();
+    pd.copy_from_slice(page_table(PDE_START));
     // loopback page table entry
     pd[PT_LEN - 1] = PageTableEntry::new(pcb.pd, DEFAULT_PT_ATTR);
 
