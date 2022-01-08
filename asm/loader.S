@@ -33,6 +33,8 @@ asm_api:
     jz .switch
     cmp eax, 5
     jz .int_exit
+    cmp eax, 6
+    jz .sys
     mov eax, 0
     ret
 .gdt:
@@ -53,6 +55,9 @@ asm_api:
     ret
 .int_exit:
     mov dword [asm_buf], int_exit
+    ret
+.sys:
+    mov dword [asm_buf], sys
     ret
 mem_sz:
     dd 0
@@ -202,5 +207,21 @@ switch: ; switch(cur, next)
     pop es
     pop ds
     ret
+
+sys:
+   push dword 0
+   push ds
+   push es
+   push fs
+   push gs
+   pushad
+
+
+   push dword 0x80
+   push esp
+   call [int_rust]       ; call rust interrupt handler
+   add  esp, 4
+   jmp int_exit
+
 
 times 8*1024 - ($ - $$) db 0 

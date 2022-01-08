@@ -18,15 +18,19 @@ type AsmBuf = &'static mut [u32];
 
 static mut SWITCH_ADDR: usize = 0;
 static mut INT_EXIT: usize = 0;
+static mut SYS: usize = 0;
 
 pub fn int_exit() -> usize {
     unsafe { INT_EXIT }
 }
 
+pub fn sys() -> usize { unsafe { SYS } }
+
 pub fn init() {
     unsafe {
         SWITCH_ADDR = api_call(methods::SWITCH_ADDR, &[]) as usize;
         INT_EXIT = api_call(methods::INT_EXIT, &[]) as usize;
+        SYS = api_call(methods::SYS, &[]) as usize;
     }
 }
 
@@ -63,6 +67,7 @@ mod methods {
     pub const MEM_SZ: u32 = 3;
     pub const SWITCH_ADDR: u32 = 4;
     pub const INT_EXIT: u32 = 5;
+    pub const SYS: u32 = 6;
 }
 
 fn api_call(method: u32, args: &[u32]) -> u32 {

@@ -9,6 +9,7 @@
 #![feature(unchecked_math)]
 
 use core::panic::PanicInfo;
+use rlib::sys::call_0;
 use crate::mem::alloc::v2p;
 use crate::mem::page::OS_MEM_OFF;
 
@@ -52,6 +53,8 @@ mod mem;
 mod thread;
 mod timer;
 mod vga;
+mod sys;
+
 
 /// The name **must be** `_start`, otherwise the compiler doesn't output anything
 /// to the object file. I don't know why it is like this.
@@ -71,6 +74,7 @@ pub extern "C" fn _start() {
         // load interrupt descriptor table
         int::init();
 
+
         // add main thread into list, register scheduler
         crate::thread::init();
         crate::init::init_locks();
@@ -78,6 +82,9 @@ pub extern "C" fn _start() {
         // increase interrupt frequency
         crate::timer::init();
         crate::thread::user::create(th_print_d, 15, "th0", 0xff);
+
+        // initialize syscall
+        crate::sys::init();
 
         // enable interrupt
         asm::sti();
@@ -90,7 +97,8 @@ pub extern "C" fn _start() {
 
 extern "C" fn th_print_d(d: usize) {
     loop {
-        c_println!("{:02X} ", d);
+        let a = call_0(0);
+        c_println!("a = {}", a);
     }
 }
 

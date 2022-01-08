@@ -33,6 +33,8 @@ asm_api:
     jz .switch
     cmp eax, 5
     jz .int_exit
+    cmp eax, 6
+    jz .sys
     mov eax, 0
     ret
 .gdt:
@@ -53,6 +55,9 @@ asm_api:
     ret
 .int_exit:
     mov dword [asm_buf], int_exit
+    ret
+.sys:
+    mov dword [asm_buf], sys
     ret
 mem_sz:
     dd 0
@@ -202,6 +207,21 @@ int_entries:
    dd int_0x1e_entry
    dd int_0x1f_entry
    dd int_0x20_entry
+   dd int_0x21_entry
+   dd int_0x22_entry
+   dd int_0x23_entry
+   dd int_0x24_entry
+   dd int_0x25_entry
+   dd int_0x26_entry
+   dd int_0x27_entry
+   dd int_0x28_entry
+   dd int_0x29_entry
+   dd int_0x2a_entry
+   dd int_0x2b_entry
+   dd int_0x2c_entry
+   dd int_0x2d_entry
+   dd int_0x2e_entry
+   dd int_0x2f_entry
 
 int_rust:
    dd 0
@@ -239,6 +259,21 @@ VECTOR 0x1d, ERROR_CODE
 VECTOR 0x1e, ERROR_CODE
 VECTOR 0x1f, ZERO
 VECTOR 0x20, ZERO
+VECTOR 0x21, ZERO
+VECTOR 0x22, ZERO
+VECTOR 0x23, ZERO
+VECTOR 0x24, ZERO
+VECTOR 0x25, ZERO
+VECTOR 0x26, ZERO
+VECTOR 0x27, ZERO
+VECTOR 0x28, ZERO
+VECTOR 0x29, ZERO
+VECTOR 0x2a, ZERO
+VECTOR 0x2b, ZERO
+VECTOR 0x2c, ZERO
+VECTOR 0x2d, ZERO
+VECTOR 0x2e, ZERO
+VECTOR 0x2f, ZERO
 ;;; IDT_CODE ;;;
 
 int_exit:
@@ -273,5 +308,21 @@ switch: ; switch(cur, next)
     pop es
     pop ds
     ret
+
+sys:
+   push dword 0
+   push ds
+   push es
+   push fs
+   push gs
+   pushad
+
+
+   push dword 0x80
+   push esp
+   call [int_rust]       ; call rust interrupt handler
+   add  esp, 4
+   jmp int_exit
+
 
 times 8*1024 - ($ - $$) db 0 

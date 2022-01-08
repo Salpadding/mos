@@ -1,18 +1,20 @@
+use crate::{asm, c_println, panic, print, println};
+use crate::asm::SELECTOR_K_CODE;
 use crate::thread::current_pcb;
 use crate::thread::reg::IntCtx;
-use crate::{asm, panic, println, print, c_println};
-use crate::asm::SELECTOR_K_CODE;
 use crate::vga::{next_line, VGA_COL};
 
-const ENTRY_SIZE: usize = 33;
+const ENTRY_SIZE: usize = 0x2f + 1;
+pub const SYS_VEC: usize = 0x80;
 const E_FLAGS_IF: u32 = 0x00000200;
 
 // 32bit interrupt gate
 const IDT_DESC_ATTR_DPL0: u8 = 1 << 7 | 0xe;
+const IDT_DESC_ATTR_DPL3: u8 = 1 << 7 | 3 << 5 | 0xe;
 
 static mut IDT_PTR: IdtPtr = IdtPtr { size: 0, off: 0 };
-static mut IDT: [u64; ENTRY_SIZE] = [0; ENTRY_SIZE];
-static mut HANDLERS: [usize; ENTRY_SIZE] = [0; ENTRY_SIZE];
+static mut IDT: [u64; SYS_VEC + 1] = [0; SYS_VEC + 1];
+static mut HANDLERS: [usize; SYS_VEC + 1] = [0; SYS_VEC + 1];
 
 
 pub static EXCEPTIONS: &[&'static str] = &[
@@ -55,7 +57,7 @@ extern "C" fn int_entry(esp: u32) {
         loop {}
     }
 
-    if (vec as usize) >= ENTRY_SIZE {
+    if (vec as usize) > SYS_VEC{
         return;
     }
 
@@ -84,7 +86,7 @@ pub fn register(vec: u16, handle: fn(int_ctx: &'static mut IntCtx)) {
 fn idt() -> &'static mut [GateBits] {
     unsafe {
         let pp = IDT.as_ptr() as usize;
-        core::slice::from_raw_parts_mut(pp as *mut _, ENTRY_SIZE)
+        core::slice::from_raw_parts_mut(pp as *mut _, SYS_VEC + 1)
     }
 }
 
@@ -106,7 +108,7 @@ pub fn init() {
     // 2. set up idt ptr
     unsafe {
         IDT_PTR = IdtPtr {
-            size: (ENTRY_SIZE as u16) * 8 - 1,
+            size: ((SYS_VEC + 1) as u16) * 8 - 1,
             off: IDT.as_ptr() as usize as u32,
         }
     }
@@ -151,6 +153,8 @@ fn init_idt() {
     for i in 0..ENTRY_SIZE {
         t[i] = GateBits::new(entries[i], IDT_DESC_ATTR_DPL0)
     }
+
+    t[SYS_VEC] = GateBits::new(asm::sys() as u32, IDT_DESC_ATTR_DPL3);
 }
 
 #[repr(packed)]

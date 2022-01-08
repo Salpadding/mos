@@ -1,5 +1,5 @@
 #![cfg_attr(not(test), no_std)]
-
+#![feature(asm)]
 #[macro_export]
 macro_rules! alloc_static {
     ($var: ident, $f: ident, $t: ty) => {
@@ -14,5 +14,6 @@ macro_rules! alloc_static {
 pub mod bitmap;
 pub mod link;
 pub mod gdt;
+pub mod sys;
 
 pub type Ref<T> = &'static mut T;
