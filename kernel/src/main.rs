@@ -9,7 +9,8 @@
 #![feature(unchecked_math)]
 
 use core::panic::PanicInfo;
-use rlib::sys::call_0;
+use rlib::sys::{call_0, write};
+use rlib::sys::NR::{GET_PID, WRITE};
 use crate::mem::alloc::v2p;
 use crate::mem::page::OS_MEM_OFF;
 
@@ -97,8 +98,8 @@ pub extern "C" fn _start() {
 
 extern "C" fn th_print_d(d: usize) {
     loop {
-        let a = call_0(0);
-        c_println!("a = {}", a);
+        let msg = "hello from user state\n";
+        write(msg.as_ptr(), msg.len());
     }
 }
 
