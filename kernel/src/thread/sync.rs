@@ -9,7 +9,7 @@ use crate::thread::PCB_PADDING;
 #[repr(C)]
 pub struct Semaphore {
     value: u32,
-    waiters: &'static mut LinkedList<PCB, PCB_PADDING>,
+    waiters: LinkedList<PCB, PCB_PADDING>,
 }
 
 #[repr(C)]
@@ -45,13 +45,12 @@ impl Guard {
 
 impl Lock {
     pub fn new(off: usize, len: usize) -> &'static mut Self {
-        let lock_len = (core::mem::size_of::<Lock>() + 7) / 8 * 8;
-        assert!(len >= lock_len + LinkedList::<PCB, PCB_PADDING>::alloc_size());
-        let waiters_off = off + lock_len;
-        let waiters = LinkedList::new(waiters_off, 2, 3);
+        let lock_len = core::mem::size_of::<Lock>();
+        assert!(len >= lock_len);
         let r: &'static mut Self = cst!(off);
         r.holder = None;
-        r.sem = Semaphore { value: 1, waiters };
+        r.sem.value = 1;
+        r.sem.waiters.init(0, 1);
         r.repeats = 0;
         r
     }

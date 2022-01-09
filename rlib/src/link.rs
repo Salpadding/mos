@@ -99,6 +99,7 @@ impl<T: 'static + Node, const N: usize> LinkedList<T, N> {
     }
 
     pub fn init(&mut self, prev_i: u8, next_i: u8) {
+        self.padding.fill(0);
         self.prev_i = prev_i;
         self.next_i = next_i;
         self.head = self.padding.as_ptr() as usize;
