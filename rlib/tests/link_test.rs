@@ -45,8 +45,8 @@ fn test() {
     println!("align = {}", core::mem::align_of::<u16>());
     println!("align = {}", core::mem::align_of::<O>());
     println!("size = {}", core::mem::size_of::<O>());
-    let mut li: LinkedList<LNode> = LinkedList::default();
-    li.init(0, 1, hd(), tl());
+    let mut li: LinkedList<LNode, 256> = LinkedList::default();
+    li.init(0, 1);
 
     for x in [n0(), n1(), n2(), n3()].into_iter().enumerate() {
         x.1.id = x.0

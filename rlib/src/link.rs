@@ -74,6 +74,19 @@ pub struct LinkedList<T: Node, const N: usize> {
     pub ph: PhantomData<T>,
 }
 
+impl<T:Node, const N: usize> Default for LinkedList<T, N> {
+    fn default() -> Self {
+        Self {
+            prev_i: 0,
+            next_i: 0,
+            head: 0,
+            tail: 0,
+            padding: [0; N],
+            ph: PhantomData::default(),
+        }
+    }
+}
+
 impl<T: 'static + Node, const N: usize> LinkedList<T, N> {
     pub fn alloc_size() -> usize {
         core::mem::size_of::<Self>()

@@ -63,6 +63,7 @@ impl VAlloc for VPool {
 
         }
 
+        phy.avl_pages += pages;
         self.remove(off, pages);
     }
 
