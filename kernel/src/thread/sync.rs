@@ -4,11 +4,12 @@ use crate::{c_println, print, println};
 use crate::int::{disable_int, set_int};
 use crate::thread::{current_pcb, PCB, schedule, Status};
 use crate::thread::data::{all, ready};
+use crate::thread::PCB_PADDING;
 
 #[repr(C)]
 pub struct Semaphore {
     value: u32,
-    waiters: &'static mut LinkedList<PCB>,
+    waiters: &'static mut LinkedList<PCB, PCB_PADDING>,
 }
 
 #[repr(C)]
@@ -45,7 +46,7 @@ impl Guard {
 impl Lock {
     pub fn new(off: usize, len: usize) -> &'static mut Self {
         let lock_len = (core::mem::size_of::<Lock>() + 7) / 8 * 8;
-        assert!(len >= lock_len + LinkedList::<PCB>::alloc_size());
+        assert!(len >= lock_len + LinkedList::<PCB, PCB_PADDING>::alloc_size());
         let waiters_off = off + lock_len;
         let waiters = LinkedList::new(waiters_off, 2, 3);
         let r: &'static mut Self = cst!(off);

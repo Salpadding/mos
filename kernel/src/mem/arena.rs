@@ -62,16 +62,12 @@ impl Node for Blk {
 pub struct BlkDesc {
     pub blk_sz: usize,
     pub blocks: usize,
-    pub frees: LinkedList<Blk>,
-    // paddings for initialize linked list
-    pub padding: [u8; PADDING],
+    pub frees: LinkedList<Blk, 32>,
 }
 
 impl BlkDesc {
     pub fn init(&mut self) {
-        let hd = unsafe { self.padding.as_ptr() as usize };
-        let tail = hd + PADDING / 2;
-        self.frees.init(0, 1, cst!(hd), cst!(tail));
+        self.frees.init(0, 1);
     }
 }
 

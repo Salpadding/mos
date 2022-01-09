@@ -1,5 +1,10 @@
 use core::marker::PhantomData;
 
+#[inline]
+fn cast<T: Sized>(p: usize) -> &'static mut T {
+    unsafe { &mut *(p as *mut _) }
+}
+
 pub trait Node: Sized {
     fn pointers_mut(&mut self) -> &mut [usize];
     fn pointers(&self) -> &[usize];
@@ -38,7 +43,7 @@ impl<T: 'static + Node> Iterator for RawIter<T> {
             None
         } else {
             let r = self.cur;
-            let c: &'static mut T = LinkedList::cast(self.cur);
+            let c: &'static mut T = cast(self.cur);
             self.cur = c.pointers()[self.next_i as usize];
             Some(r)
         }
@@ -52,41 +57,39 @@ impl<T: 'static + Node> Iterator for Iter<T> {
         if self.cur == self.tail {
             None
         } else {
-            let c: &'static mut T = LinkedList::cast(self.cur);
+            let c: &'static mut T = cast(self.cur);
             self.cur = c.pointers()[self.next_i as usize];
             Some(c)
         }
     }
 }
 
-#[derive(Default)]
 #[repr(C)]
-pub struct LinkedList<T: Node> {
+pub struct LinkedList<T: Node, const N: usize> {
     pub prev_i: u8,
     pub next_i: u8,
     pub head: usize,
     pub tail: usize,
+    pub padding: [usize; N],
     pub ph: PhantomData<T>,
 }
 
-impl<T: 'static + Node> LinkedList<T> {
+impl<T: 'static + Node, const N: usize> LinkedList<T, N> {
     pub fn alloc_size() -> usize {
-        8 * 4 + (core::mem::size_of::<T>() + 7) / 8 * 8 * 2
+        core::mem::size_of::<Self>()
     }
 
     pub fn new(off: usize, prev_i: u8, next_i: u8) -> &'static mut Self {
         let t = unsafe { &mut *(off as *mut Self) };
-        let head = off + 8 * 4;
-        let tail = head + (core::mem::size_of::<T>() + 7) / 8 * 8;
-        t.init(prev_i, next_i, Self::cast(head), Self::cast(tail));
+        t.init(prev_i, next_i);
         t
     }
 
-    pub fn init(&mut self, prev_i: u8, next_i: u8, head: &'static mut T, tail: &'static mut T) {
+    pub fn init(&mut self, prev_i: u8, next_i: u8) {
         self.prev_i = prev_i;
         self.next_i = next_i;
-        self.head = head as *const _ as usize;
-        self.tail = tail as *const _ as usize;
+        self.head = self.padding.as_ptr() as usize;
+        self.tail = self.head + N / 2;
         self.head().pointers_mut()[self.next_i as usize] = self.tail;
         self.tail().pointers_mut()[self.prev_i as usize] = self.head;
         self.ph = PhantomData::default();
@@ -113,17 +116,13 @@ impl<T: 'static + Node> LinkedList<T> {
     }
 
     fn head(&self) -> &'static mut T {
-        Self::cast(self.head)
+        cast(self.head)
     }
 
     fn tail(&self) -> &'static mut T {
-        Self::cast(self.tail)
+        cast(self.tail)
     }
 
-    #[inline]
-    fn cast(p: usize) -> &'static mut T {
-        unsafe { &mut *(p as *mut _) }
-    }
 
     pub fn is_empty(&self) -> bool {
         self.head().pointers()[self.next_i as usize] == self.tail

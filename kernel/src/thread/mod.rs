@@ -42,6 +42,7 @@ pub const MAIN_PRIORITY: u8 = DEFAULT_PRIORITY;
 pub const PCB_PAGES: usize = 1;
 const STACK_MAGIC: u32 = 0x238745ea;
 pub const PCB_SIZE: usize = PCB_PAGES * PAGE_SIZE;
+pub const PCB_PADDING: usize = 128;
 
 static mut TICKS: u32 = 0;
 
