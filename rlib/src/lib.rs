@@ -17,7 +17,7 @@ macro_rules! alloc_static {
 pub mod bitmap;
 pub mod link;
 pub mod gdt;
-#[cfg(target_arch = "x86")]
+#[cfg(feature = "sys")]
 pub mod sys;
 
 pub trait IntoRp {

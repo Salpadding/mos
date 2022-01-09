@@ -113,8 +113,17 @@ pub extern "C" fn _start() {
 
 extern "C" fn th_print_d(d: usize) {
     loop {
-        // let msg = "hello from user state\n";
-        // write(msg.as_ptr(), msg.len());
+        let msg = "hello world from user space\n";
+        let p = rlib::sys::malloc(msg.len());
+        let slice: &'static mut[u8] = unsafe {
+            core::slice::from_raw_parts_mut(p as *mut _, msg.len())
+        };
+
+        slice[..msg.len()].copy_from_slice(msg.as_bytes());
+
+        rlib::sys::write(slice.as_ptr(), msg.len());
+
+        rlib::sys::free(p);
     }
 }
 

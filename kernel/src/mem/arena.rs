@@ -140,6 +140,7 @@ pub fn free(p: usize) {
     let _gd = lk.map(|x| x.lock());
 
     let b: &'static mut Blk = cst!(p);
+    b.pointers.fill(0);
     let a = b.arena();
 
     let v_p = if cur.user() { cur.v_pool() } else { v_pool() };

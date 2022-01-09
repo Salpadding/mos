@@ -13,6 +13,14 @@ pub fn sys_handle(ctx: &'static mut IntCtx) {
                 unsafe { put_char(*p.add(i as usize)) };
             }
         },
+        NR::MALLOC => {
+            let sz = ctx.ebx as usize;
+            ctx.eax = crate::mem::arena::malloc(sz) as u32;
+        },
+        NR::FREE => {
+            crate::mem::arena::free(ctx.ebx as usize);
+            ctx.eax = 0;
+        }
         _ => {}
     }
 }
