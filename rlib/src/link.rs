@@ -184,7 +184,7 @@ impl<T: 'static + Node> LinkedList<T> {
 
     #[inline]
     fn assert_not_contains(&self, n: &mut T) {
-        assert!(n.pointers()[self.prev_i as usize] == 0 && n.pointers()[self.next_i as usize] == 0, "node already on list");
+        assert!(n.pointers()[self.prev_i as usize] == 0 && n.pointers()[self.next_i as usize] == 0, "node already in list");
     }
 
     pub fn append(&mut self, n: &mut T) {

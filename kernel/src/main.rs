@@ -59,6 +59,7 @@ mod thread;
 mod timer;
 mod vga;
 mod sys;
+mod fs;
 
 
 /// The name **must be** `_start`, otherwise the compiler doesn't output anything
