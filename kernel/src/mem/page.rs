@@ -10,6 +10,7 @@ pub const PT_LEN: usize = 1024;
 pub const PT_SIZE: usize = PE_SIZE * PT_LEN;
 pub const OS_MEM_OFF: usize = 0xc0000000;
 pub const RESERVED_MEM: usize = 5 << 20;
+pub const USER_P_START: usize = 8 << 20;
 pub const USER_V_START: usize = 8 << 20;
 pub const DEFAULT_PT_ATTR: u16 = 7;
 
@@ -24,7 +25,7 @@ pub const BUF_UPPER_BOUND: usize = 0x80000;
 // for static alloc before page setup
 static mut PD_USED: usize = 0;
 
-pub const LOOP_BACK_PD: usize = 0xfffff00;
+pub const LOOP_BACK_PD: usize = 0xfffff000;
 
 
 pub fn page_table(off: usize) -> PageTable {

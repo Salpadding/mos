@@ -1,35 +1,63 @@
 use rlib::bitmap::Bitmap;
 
 use crate::err::SE;
-use crate::mem::page::{map_page, page_table, VirtualAddress, DEFAULT_PT_ATTR, PDE_START, LOOP_BACK_PD};
+use crate::mem::page::{map_page, page_table, VirtualAddress, DEFAULT_PT_ATTR, PDE_START, LOOP_BACK_PD, USER_V_START, RESERVED_MEM, USER_P_START};
 use crate::mem::{
     fill_zero, k_lock, kernel_pool, u_lock, user_pool, v_pool, PagePool, VPool, PAGE_SIZE,
 };
-use crate::println;
+use crate::{OS_MEM_OFF, println};
 use crate::thread::current_pcb;
 
 pub trait VAlloc {
     /// try to alloc continuous pages in virtual memory space
     fn v_alloc(&mut self, pages: usize) -> Result<usize, SE>;
+
+    /// free pages, also free bitmap in physical pool
+    fn free(&mut self, off: usize, pages: usize);
+
+
+    /// remove bitmap only
+    fn remove(&mut self, off: usize, pages: usize);
 }
 
 pub trait PAlloc {
     /// try to alloc one page in physical memory space, not required to be continuous
     fn p_alloc(&mut self) -> Result<usize, SE>;
+
+    fn remove(&mut self, off: usize);
 }
+
 
 impl VAlloc for VPool {
     fn v_alloc(&mut self, pages: usize) -> Result<usize, SE> {
-        let v = v_pool();
+        let v = self;
 
         let bit_i = v.bitmap.try_alloc(pages);
         if bit_i < 0 {
             return Err("memory overflow");
         }
 
-        v.bitmap.fill_n(bit_i as usize, pages);
+        v.bitmap.fill_n(bit_i as usize, pages, true);
 
         Ok(v.v_start + (bit_i as usize) * PAGE_SIZE)
+    }
+
+    fn free(&mut self, off: usize, pages: usize) {
+        let p = v2p(off);
+        let phy = if p >= USER_P_START { user_pool() }  else { kernel_pool() };
+
+        for i in 0..pages {
+            let v = off + i * PAGE_SIZE;
+            let p = v2p(v);
+            phy.remove(p);
+        }
+
+        self.remove(off, pages);
+    }
+
+    fn remove(&mut self, off: usize, pages: usize) {
+        let start_i = (off - self.v_start) / PAGE_SIZE;
+        self.bitmap.fill_n(start_i, pages, false);
     }
 }
 
@@ -46,6 +74,10 @@ impl PAlloc for PagePool {
         // return physical address of this page
         Ok(p)
     }
+
+    fn remove(&mut self, off: usize) {
+        self.bitmap.set((off - self.p_start) / PAGE_SIZE, false);
+    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -54,11 +86,12 @@ pub enum Pool {
     USER,
 }
 
-pub fn v2p(p: Pool, v: usize) -> usize {
-    assert_eq!(p, Pool::KERNEL, "kernel");
-    let pd = page_table(PDE_START);
-    let pt = pd[v.pde_i()].sub_table();
-    (pt[v.pte_i()].data & 0xfffff000) | (v & 0xfff)
+pub fn v2p(v: usize) -> usize {
+    // get address of page table entry by loopback
+    let x: usize = 0xffc00000 | v.pde_i() << 12 | v.pte_i() * 4;
+    let y: *const usize = x as *const _;
+    // physical address of page table
+    unsafe { (*y & 0xfffff000) | (v & 0xfff) }
 }
 
 // allocate only one page by virtual address

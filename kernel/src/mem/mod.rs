@@ -1,12 +1,14 @@
 use rlib::bitmap::Bitmap;
 pub use {alloc::pg_alloc, alloc::Pool, page::init_page, page::page_enabled, page::PageTable, page::PT_LEN};
+use rlib::size_of;
 
-use crate::mem::page::{static_alloc, PDE_START, PT_SIZE, RESERVED_MEM};
+use crate::mem::page::{static_alloc, PDE_START, PT_SIZE, RESERVED_MEM, USER_P_START};
 use crate::{asm, println};
 use crate::thread::sync::Lock;
 
 pub mod alloc;
 pub mod page;
+mod arena;
 
 pub static mut K_LOCK: [u8; 256] = [0u8; 256];
 pub static mut K_LOCK_REF: usize = 0;
@@ -71,13 +73,13 @@ impl PagePool {
 }
 
 // kernel physical memory pool
-fn kernel_pool() -> &'static mut PagePool {
+pub fn kernel_pool() -> &'static mut PagePool {
     cast!(PagePool, 0)
 }
 
 
 // user physical memory pool
-fn user_pool() -> &'static mut PagePool {
+pub fn user_pool() -> &'static mut PagePool {
     cast!(PagePool, BUF_ST_SIZE)
 }
 
@@ -110,7 +112,7 @@ fn alloc_bit_map(len: usize) -> &'static mut [u8] {
 pub fn fill_zero(start: usize, len: usize) {
     let p = start as *mut usize;
     unsafe {
-        for i in 0..len / core::mem::size_of::<usize>() {
+        for i in 0..len /  size_of!(usize){
             *p.add(i) = 0;
         }
     }
@@ -141,11 +143,11 @@ pub fn init() {
     }
 
     assert!(
-        core::mem::size_of::<PagePool>() < BUF_ST_SIZE,
+        size_of!(PagePool) < BUF_ST_SIZE,
         "size of page pool"
     );
     assert!(
-        core::mem::size_of::<VPool>() < BUF_ST_SIZE,
+        size_of!(VPool) < BUF_ST_SIZE,
         "size of v pool"
     );
 
@@ -167,11 +169,13 @@ pub fn init() {
     k.total_pages = kernel_pages;
     k.avl_pages = k.total_pages;
 
-    u.p_start = RESERVED_MEM + KERNEL_MEM;
+    u.p_start = USER_P_START;
     u.bitmap = alloc_bit_map(user_pages / 8);
     u.total_pages = user_pages;
     u.avl_pages = u.total_pages;
 
     v.bitmap = alloc_bit_map(kernel_pages / 8);
     v.v_start = page::OS_MEM_OFF + RESERVED_MEM;
+
+    arena::init();
 }

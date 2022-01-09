@@ -91,15 +91,15 @@ pub extern "C" fn _start() {
         asm::sti();
 
         let v = OS_MEM_OFF + (4 << 20);
-        println!("v2p of 0x{:08X} = 0x{:08X}", v, v2p(Pool::KERNEL, v));
+        println!("v2p of 0x{:08X} = 0x{:08X}", v, v2p( v));
         bk!();
     }
 }
 
 extern "C" fn th_print_d(d: usize) {
     loop {
-        let msg = "hello from user state\n";
-        write(msg.as_ptr(), msg.len());
+        // let msg = "hello from user state\n";
+        // write(msg.as_ptr(), msg.len());
     }
 }
 

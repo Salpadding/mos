@@ -5,7 +5,7 @@ pub trait Bitmap {
     fn try_alloc(&self, bits: usize) -> isize;
     fn set(&mut self, bit_i: usize, v: bool);
     fn bits(&self) -> usize;
-    fn fill_n(&mut self, start_bit: usize, n: usize);
+    fn fill_n(&mut self, start_bit: usize, n: usize, test: bool);
 }
 
 impl Bitmap for [u8] {
@@ -73,32 +73,45 @@ impl Bitmap for [u8] {
         self.len() * 8
     }
 
-    fn fill_n(&mut self, start_bit: usize, n: usize) {
+    fn fill_n(&mut self, start_bit: usize, n: usize, test: bool) {
         let end = start_bit + n;
         let x = start_bit / 8 + 1;
         let y = end / 8;
 
         if y >= x {
             for i in x..y {
-                self[i] = 0xff;
+                self[i] = if test { 0xff } else { 0 };
             }
 
-            self[x - 1] = self[x - 1] | (0xff << (start_bit % 8));
+            if test {
+                self[x - 1] |=  0xff << start_bit % 8;
+            } else {
+                self[x - 1] &= !(0xff << start_bit % 8);
+            }
 
             if end % 8 > 0 {
-                self[y] = self[y] | (0xff >> (8 - end % 8));
+                if test {
+                    self[y] |=  0xff >> 8 - end % 8;
+                } else {
+                    self[y] &=  !(0xff >> 8 - end % 8);
+                }
             }
             return;
         }
 
         if y < x {
-            self[x - 1] = fill_byte(self[x - 1], start_bit % 8, n);
+            self[x - 1] = fill_byte(self[x - 1], start_bit % 8, n, test);
         }
     }
 }
 
-fn fill_byte(x: u8, i: usize, n: usize) -> u8 {
-    x | ((0xff << i) & !(0xff << (i + n)))
+/// fill starts from low bit i, and n bits
+fn fill_byte(x: u8, i: usize, n: usize, test: bool) -> u8 {
+    if test {
+        x | 0xff << i & !(0xff << i + n)
+    } else {
+        x & !(0xff << i & !(0xff << i + n))
+    }
 }
 
 
@@ -114,7 +127,7 @@ mod test {
         let mut x: Vec<u8> = vec![1 << 3, 0, 1 << 4];
         let start = x.try_alloc(4 + 8 + 3);
         println!("start = {}", start);
-        x.fill_n(4, 15);
+        x.fill_n(4, 15, true);
 
         for i in 0..x.bits() {
             println!("bit {} = {}", i, x.test(i));
@@ -126,12 +139,32 @@ mod test {
         let mut x: [u8; 4] = [0, 0, 0, 0];
         let mut y = x.clone();
         let mut z = x.clone();
+        let mut z0 = x.clone();
 
-        x.fill_n(8, 10);
-        y.fill_n(8, 17);
-        z.fill_n(8, 8);
+        x.fill_n(8, 10, true);
+        y.fill_n(8, 17, true);
+        z.fill_n(8, 8, true);
+        z0.fill_n(3, 3, true);
 
-        for a in [x, y, z] {
+        for a in [x, y, z, z0] {
+            let s: Vec<_> = a.iter().map(|x| format!("{:08b}", x)).collect();
+            println!("{:?}", s);
+        }
+    }
+
+    #[test]
+    fn test2() {
+        let mut x: [u8; 4] = [0xff, 0xff, 0xff, 0xff];
+        let mut y = x.clone();
+        let mut z = x.clone();
+        let mut z0 = x.clone();
+
+        x.fill_n(8, 10, false);
+        y.fill_n(8, 17, false);
+        z.fill_n(8, 8, false);
+        z0.fill_n(3, 3, false);
+
+        for a in [x, y, z, z0] {
             let s: Vec<_> = a.iter().map(|x| format!("{:08b}", x)).collect();
             println!("{:?}", s);
         }
