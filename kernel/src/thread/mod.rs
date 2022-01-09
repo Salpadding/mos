@@ -1,17 +1,18 @@
 use rlib::alloc_static;
 use rlib::link::{LinkedList, Node};
 
-use crate::asm::{switch, REG_CTX_LEN, SELECTOR_K_DATA};
+use crate::{c_println, Pool, print, println};
+use crate::asm::{REG_CTX_LEN, SELECTOR_K_DATA, switch};
 use crate::err::SE;
-use crate::mem::{fill_zero, pg_alloc, PAGE_SIZE, PT_LEN, VPool};
-use crate::thread::data::{all, ready};
-use crate::thread::Status::{Ready, Running};
-use crate::{print, println, Pool, c_println};
+use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc, PT_LEN, VPool};
+use crate::mem::arena::{BlkDesc, DESC_CNT};
 use crate::mem::page::PDE_START;
-use crate::thread::reg::IntCtx;
-use crate::thread::tss::esp0;
-use crate::mem::PageTable;
 use crate::mem::PagePool;
+use crate::mem::PageTable;
+use crate::thread::data::{all, ready};
+use crate::thread::reg::IntCtx;
+use crate::thread::Status::{Ready, Running};
+use crate::thread::tss::esp0;
 
 use self::reg::KernelCtx;
 
@@ -91,6 +92,7 @@ pub struct PCB {
 
     // virtual memory pool, for user process
     v_pool: VPool,
+    pub desc: [BlkDesc; DESC_CNT],
     magic: u32,
 }
 

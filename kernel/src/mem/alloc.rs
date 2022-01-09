@@ -1,11 +1,11 @@
 use rlib::bitmap::Bitmap;
 
-use crate::err::SE;
-use crate::mem::page::{map_page, page_table, VirtualAddress, DEFAULT_PT_ATTR, PDE_START, LOOP_BACK_PD, USER_V_START, RESERVED_MEM, USER_P_START};
-use crate::mem::{
-    fill_zero, k_lock, kernel_pool, u_lock, user_pool, v_pool, PagePool, VPool, PAGE_SIZE,
-};
 use crate::{OS_MEM_OFF, println};
+use crate::err::SE;
+use crate::mem::{
+    fill_zero, k_lock, kernel_pool, PAGE_SIZE, PagePool, u_lock, user_pool, v_pool, VPool,
+};
+use crate::mem::page::{DEFAULT_PT_ATTR, LOOP_BACK_PD, map_page, page_table, PDE_START, RESERVED_MEM, USER_P_START, USER_V_START, VirtualAddress};
 use crate::thread::current_pcb;
 
 pub trait VAlloc {
@@ -50,6 +50,17 @@ impl VAlloc for VPool {
             let v = off + i * PAGE_SIZE;
             let p = v2p(v);
             phy.remove(p);
+
+            // remove pte
+            let pte: *mut u32 = pte_ptr(v) as *mut _;
+            let p = pte as usize;
+
+            // flush page table
+            unsafe {
+                *pte = *pte & !1;
+                asm!("invlpg [{}]", in(reg) p);
+            }
+
         }
 
         self.remove(off, pages);
@@ -86,12 +97,18 @@ pub enum Pool {
     USER,
 }
 
+pub fn pte_ptr(v: usize) -> *const u8 {
+    // get address of page table entry by loopback
+    let x: usize = 0xffc00000 | v.pde_i() << 12 | v.pte_i() * 4;
+    x as *const _
+}
+
 pub fn v2p(v: usize) -> usize {
     // get address of page table entry by loopback
     let x: usize = 0xffc00000 | v.pde_i() << 12 | v.pte_i() * 4;
     let y: *const usize = x as *const _;
     // physical address of page table
-    unsafe { (*y & 0xfffff000) | (v & 0xfff) }
+    unsafe { *y & 0xfffff000 | v & 0xfff }
 }
 
 // allocate only one page by virtual address

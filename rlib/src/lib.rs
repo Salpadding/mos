@@ -2,6 +2,7 @@
 #![feature(asm)]
 
 use core::ops::{Add, Div, Sub};
+
 #[macro_export]
 macro_rules! alloc_static {
     ($var: ident, $f: ident, $t: ty) => {
@@ -65,5 +66,3 @@ macro_rules! size_of {
         }
     };
 }
-
-pub type Ref<T> = &'static mut T;

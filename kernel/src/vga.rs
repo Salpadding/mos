@@ -1,7 +1,9 @@
-use crate::asm::{in_b, out_b};
-use crate::thread::sync::Lock;
 use core::fmt;
 use core::fmt::Write;
+
+use crate::asm::{in_b, out_b};
+use crate::S_LOCK_SZ;
+use crate::thread::sync::Lock;
 
 const VGA_START: usize = 0xb8000;
 const VGA_LINES: usize = 25;
@@ -94,7 +96,7 @@ pub fn puts(s: &str) {
     }
 }
 
-pub static mut VGA_LOCK: [u8; 256] = [0u8; 256];
+pub static mut VGA_LOCK: [u8; S_LOCK_SZ] = [0u8; S_LOCK_SZ];
 pub static mut VGA_LOCK_REF: usize = 0;
 
 const PORT: u16 = 0x3f8;

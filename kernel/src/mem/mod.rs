@@ -1,19 +1,20 @@
-use rlib::bitmap::Bitmap;
 pub use {alloc::pg_alloc, alloc::Pool, page::init_page, page::page_enabled, page::PageTable, page::PT_LEN};
+use rlib::bitmap::Bitmap;
 use rlib::size_of;
 
-use crate::mem::page::{static_alloc, PDE_START, PT_SIZE, RESERVED_MEM, USER_P_START};
 use crate::{asm, println};
+use crate::mem::page::{PDE_START, PT_SIZE, RESERVED_MEM, static_alloc, USER_P_START};
+use crate::S_LOCK_SZ;
 use crate::thread::sync::Lock;
 
 pub mod alloc;
 pub mod page;
-mod arena;
+pub mod arena;
 
-pub static mut K_LOCK: [u8; 256] = [0u8; 256];
+pub static mut K_LOCK: [u8; S_LOCK_SZ] = [0u8; S_LOCK_SZ];
 pub static mut K_LOCK_REF: usize = 0;
 
-pub static mut U_LOCK: [u8; 256] = [0u8; 256];
+pub static mut U_LOCK: [u8; S_LOCK_SZ] = [0u8; S_LOCK_SZ];
 pub static mut U_LOCK_REF: usize = 0;
 
 

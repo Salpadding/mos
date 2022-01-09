@@ -1,6 +1,7 @@
+use rlib::gdt::gdt;
+
 use crate::asm::{SELECTOR_K_DATA, SELECTOR_TSS};
 use crate::println;
-use rlib::gdt::gdt;
 
 pub const TSS_LEN: usize = 27;
 pub const TSS_SIZE: usize = TSS_LEN * 4;

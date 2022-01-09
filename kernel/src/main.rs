@@ -9,12 +9,16 @@
 #![feature(unchecked_math)]
 
 use core::panic::PanicInfo;
+
 use rlib::sys::{call_0, write};
 use rlib::sys::NR::{GET_PID, WRITE};
-use crate::mem::alloc::v2p;
-use crate::mem::page::OS_MEM_OFF;
 
+use crate::mem::alloc::v2p;
+use crate::mem::arena::{free, malloc};
+use crate::mem::page::OS_MEM_OFF;
 use crate::mem::Pool;
+
+pub const S_LOCK_SZ: usize = 1024;
 
 macro_rules! cst {
     ($p: expr) => {
@@ -92,6 +96,17 @@ pub extern "C" fn _start() {
 
         let v = OS_MEM_OFF + (4 << 20);
         println!("v2p of 0x{:08X} = 0x{:08X}", v, v2p( v));
+
+        let p = malloc(512);
+        println!("malloc ptr = 0x{:08X}", p);
+        let p1 = malloc(512);
+        println!("malloc ptr = 0x{:08X}", p1);
+
+
+        // free them
+        free(p);
+        free(p1);
+
         bk!();
     }
 }

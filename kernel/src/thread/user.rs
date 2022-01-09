@@ -53,6 +53,8 @@ pub fn create(rt: Routine, args: usize, name: &str, priority: u8) {
         core::slice::from_raw_parts_mut(bit_map as *mut _, p * PAGE_SIZE)
     };
 
+    crate::mem::arena::init_descs(&mut pcb.desc);
+
     // create page directory
     pcb.pd = v2p(pg_alloc(Pool::KERNEL, 1, true).unwrap());
     let pd = pcb.page_dir().unwrap();

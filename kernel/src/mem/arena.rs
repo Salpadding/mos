@@ -2,15 +2,19 @@ use rlib::{alloc_static, div_up, size_of};
 use rlib::link::{LinkedList, Node};
 
 use crate::{c_println, Pool, println};
-use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc};
+use crate::mem::{fill_zero, k_lock, PAGE_SIZE, pg_alloc, u_lock, v_pool};
+use crate::mem::alloc::VAlloc;
+use crate::thread::current_pcb;
 
 pub const DESC_CNT: usize = 7;
 pub const MAX_BLK_SIZE: usize = 1024;
 
 alloc_static!(K_DESCS, k_descs, [BlkDesc; DESC_CNT]);
 
+/// arena is head of a page(4K)
 #[repr(C)]
 pub struct Arena {
+    // block size of this page
     desc: usize,
     count: usize,
     large: bool,
@@ -29,6 +33,10 @@ impl Arena {
 
 pub const PADDING: usize = 32;
 
+
+/// for large arena, block pointer = page off + size_of::<Arena>
+/// for other arena, block pointer = page off + size_of::<Arena> + i * block size
+/// for all blocks, page off = block pointer & 0xfffff000
 #[repr(transparent)]
 pub struct Blk {
     pointers: [usize; 2],
@@ -52,51 +60,48 @@ impl Node for Blk {
 
 #[repr(C)]
 pub struct BlkDesc {
-    blk_sz: usize,
-    blocks: usize,
-    frees: LinkedList<Blk>,
+    pub blk_sz: usize,
+    pub blocks: usize,
+    pub frees: LinkedList<Blk>,
     // paddings for initialize linked list
-    padding: [u8; PADDING],
+    pub padding: [u8; PADDING],
 }
 
 impl BlkDesc {
-    fn init(&mut self) {
+    pub fn init(&mut self) {
         let hd = unsafe { self.padding.as_ptr() as usize };
         let tail = hd + PADDING / 2;
         self.frees.init(0, 1, cst!(hd), cst!(tail));
     }
 }
 
-
-pub fn init() {
+pub fn init_descs(d: &mut [BlkDesc]) {
     let mut block_size: usize = 16;
     for i in 0..DESC_CNT {
-        k_descs()[i].blk_sz = block_size;
-        k_descs()[i].blocks = (PAGE_SIZE - size_of!(Arena)) / block_size;
-        k_descs()[i].init();
+        d[i].blk_sz = block_size;
+        d[i].blocks = (PAGE_SIZE - size_of!(Arena)) / block_size;
+        d[i].init();
         block_size *= 2;
     }
+}
 
-    // print blocks
-
-    for i in 0..DESC_CNT {
-        let b = unsafe { k_descs().as_ptr().add(i) };
-        let bm = &k_descs()[i];
-        c_println!("block {} at 0x{:08X}", i, b as usize);
-        c_println!("block {} size = {}", i, bm.blk_sz);
-        c_println!("block {}'s padding at 0x{:08X}", i, bm.padding.as_ptr() as usize);
-        c_println!("block {}'s head at 0x{:08X}", i, bm.frees.head);
-        c_println!("block {}'s tail at 0x{:08X}", i, bm.frees.tail);
-        c_println!("list len = {}", bm.frees.len());
-    }
+pub fn init() {
+    init_descs(k_descs());
 }
 
 // malloc memory in kernel space
 pub fn malloc(size: usize) -> usize {
+    let cur = current_pcb();
+
+    let l = if cur.user() { u_lock() } else { k_lock() };
+    let pool = if cur.user() { Pool::USER } else { Pool::KERNEL };
+    let ds = if cur.user() { &mut cur.desc } else { k_descs() };
+    let _gd = l.map(|x| x.lock());
+
     // allocate page by page if size > 1024
     if size > MAX_BLK_SIZE {
         let pages = div_up!(size + size_of!(Arena), PAGE_SIZE);
-        let p = pg_alloc(Pool::KERNEL, pages, true).unwrap();
+        let p = pg_alloc(pool, pages, true).unwrap();
         let a: &'static mut Arena = cst!(p);
         a.desc = 0;
         a.count = pages;
@@ -104,27 +109,54 @@ pub fn malloc(size: usize) -> usize {
         return p + size_of!(Arena);
     }
 
-    let k = k_descs();
-    let i = (0..DESC_CNT).find(|x| k[*x].blk_sz >= size).unwrap();
+    let i = (0..DESC_CNT).find(|x| ds[*x].blk_sz >= size).unwrap();
 
     // initialize blocks
     // create area, link them
-    if k[i].frees.is_empty() {
-        let p = pg_alloc(Pool::KERNEL, 1, true).unwrap();
+    if ds[i].frees.is_empty() {
+        let p = pg_alloc(pool, 1, true).unwrap();
         let a: &'static mut Arena = cst!(p);
-        a.desc = unsafe { k.as_ptr().add(i) } as usize;
+        a.desc = unsafe { ds.as_ptr().add(i) } as usize;
         a.large = false;
-        a.count = k[i].blocks;
+        a.count = ds[i].blocks;
 
-        for i in 0..k[i].blocks {
-            let b: &'static mut Blk = cst!(a.block(i));
-            k[i].frees.append(b);
+
+        for j in 0..ds[i].blocks {
+            let b: &'static mut Blk = cst!(a.block(j));
+            ds[i].frees.append(b);
         }
     }
 
-    let b = k[i].frees.pop_head().unwrap();
-    fill_zero(b as *const _ as usize, k[i].blk_sz);
+    let b = ds[i].frees.pop_head().unwrap();
+    fill_zero(b as *const _ as usize, ds[i].blk_sz);
     let a = b.arena();
     a.count -= 1;
-    0
+    b as *const _ as usize
+}
+
+pub fn free(p: usize) {
+    let cur = current_pcb();
+    let lk = if cur.user() { u_lock() } else { k_lock() };
+    let _gd = lk.map(|x| x.lock());
+
+    let b: &'static mut Blk = cst!(p);
+    let a = b.arena();
+
+    let v_p = if cur.user() { cur.v_pool() } else { v_pool() };
+
+    if a.large {
+        v_p.free(a as *const _ as usize, a.count);
+        return;
+    }
+
+    // collect free block
+    let d = a.desc().unwrap();
+    d.frees.append(b);
+    a.count += 1;
+
+    if a.count == d.blocks {
+        // clear the list
+        d.init();
+        v_p.free(a as *const _ as usize, 1);
+    }
 }

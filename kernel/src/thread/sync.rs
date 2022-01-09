@@ -1,9 +1,9 @@
 use rlib::link::LinkedList;
 
+use crate::{c_println, print, println};
 use crate::int::{disable_int, set_int};
+use crate::thread::{current_pcb, PCB, schedule, Status};
 use crate::thread::data::{all, ready};
-use crate::thread::{current_pcb, schedule, Status, PCB};
-use crate::{c_println, print, println };
 
 #[repr(C)]
 pub struct Semaphore {
