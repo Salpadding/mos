@@ -62,8 +62,17 @@ bximage
 # hd
 # flat
 # 512
-# 60
+# 64
 # build/disk.img
+
+
+bximage
+# 1
+# hd
+# flat
+# 512
+# 64
+# build/disk-fs.img
 mkdir build
 ```
 

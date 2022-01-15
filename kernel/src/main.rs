@@ -108,6 +108,7 @@ pub extern "C" fn _start() {
         free(p);
         free(p1);
 
+        c_println!("disks = {}", crate::fs::diks());
         bk!();
     }
 }
