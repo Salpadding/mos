@@ -111,6 +111,7 @@ pub extern "C" fn _start() {
         free(p1);
 
         c_println!("disks = {}", crate::fs::disks());
+        crate::fs::ide::init();
 
         loop {
             println!("hello from init thread");

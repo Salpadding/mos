@@ -76,6 +76,11 @@ bximage
 mkdir build
 ```
 
+```sh
+# generate slave hard drive
+node gen_hd.js
+```
+
 3. build bootloader and kernel
 
 ```sh

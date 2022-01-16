@@ -19,6 +19,16 @@ pub mod link;
 pub mod gdt;
 #[cfg(feature = "sys")]
 pub mod sys;
+pub mod args;
+
+pub fn as_str(x: &[u8]) -> &str {
+    for i in 0..x.len() {
+        if x[i] == 0 {
+            return unsafe { core::str::from_utf8_unchecked(&x[0..i]) };
+        }
+    }
+    return unsafe { core::str::from_utf8_unchecked(x) };
+}
 
 pub trait IntoRp {
     fn rs<T: Sized>(self) -> *const T;

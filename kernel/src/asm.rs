@@ -188,7 +188,7 @@ pub fn out_s(s: &str) {
     }
 }
 
-struct Writer {}
+pub struct Writer {}
 
 impl fmt::Write for Writer {
     fn write_str(&mut self, s: &str) -> fmt::Result {

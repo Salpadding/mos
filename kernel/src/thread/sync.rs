@@ -21,8 +21,8 @@ pub fn sleep_mils(t: u32) {
 
 #[repr(C)]
 pub struct Semaphore {
-    value: u32,
-    waiters: LinkedList<PCB, PCB_PADDING>,
+    pub value: u32,
+    pub waiters: LinkedList<PCB, PCB_PADDING>,
 }
 
 #[repr(C)]
@@ -71,11 +71,15 @@ impl Lock {
         let lock_len = core::mem::size_of::<Lock>();
         assert!(len >= lock_len);
         let r: &'static mut Self = cst!(off);
-        r.holder = None;
-        r.sem.value = 1;
-        r.sem.waiters.init(0, 1);
-        r.repeats = 0;
+        r.init();
         r
+    }
+
+    pub fn init(&mut self) {
+        self.holder = None;
+        self.sem.value = 1;
+        self.sem.waiters.init(0, 1);
+        self.repeats = 0;
     }
 
     #[no_mangle]

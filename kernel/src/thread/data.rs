@@ -8,6 +8,7 @@ alloc_static!(ALL, all, LinkedList<PCB, PCB_PADDING>);
 alloc_static!(READY, ready, LinkedList<PCB, PCB_PADDING>);
 
 pub fn init() {
+    // general tag
     let all = all();
     all.init(0, 1);
 
