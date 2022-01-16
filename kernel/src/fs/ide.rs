@@ -2,10 +2,10 @@ use rlib::{alloc_static, as_str, div_up};
 use rlib::args::SliceWriter;
 use rlib::link::{LinkedList, Node};
 
-use crate::{c_print, c_println, sleep_mils};
+use crate::{c_print, c_println, println, sleep_mils};
 use crate::asm::out_b;
 use crate::err::SE;
-use crate::fs::ctl::{BIT_DEV_LBA, BIT_DEV_MBS, BIT_STAT_BSY, BIT_STAT_DRQ, CMD_ID};
+use crate::fs::ctl::{BIT_DEV_DEV, BIT_DEV_LBA, BIT_DEV_MBS, BIT_STAT_BSY, BIT_STAT_DRQ, CMD_ID, CMD_READ_SEC};
 use crate::fs::DiskInfo;
 use crate::int::register;
 use crate::thread::reg::IntCtx;
@@ -15,12 +15,11 @@ const DEBUG: bool = true;
 const IDE_CHANNELS: usize = 2;
 const DISKS: usize = 2;
 const NAME_BUF_LEN: usize = 8;
-const PRIMARY_LEN: usize = 4;
+pub const PRIMARY_LEN: usize = 4;
 const LOGICAL_LEN: usize = 8;
 const BUSY_WAITING_MILS: u32 = 30 * 1000;
 const SEC_SIZE: usize = 512;
-
-
+const MAX_LBA: u32 = 80 * 1024 * 1024 / 512 - 1;
 
 alloc_static!(PARTITION_LIST, partitions, LinkedList<Partition, 64>);
 alloc_static!(IDE_CHANNEL, channels, [IdeChannel; IDE_CHANNELS]);
@@ -56,9 +55,8 @@ pub struct Disk {
     pub name: [u8; NAME_BUF_LEN],
     // name of this disk
     pub ide: usize,
-    // the channel where this disk belongs to
+    // the channel where this disk belongs to, primary -> 1, slave -> 0
     pub dev_no: u8,
-    // primary -> 1, slave -> 0
     pub primary_parts: [Option<Partition>; PRIMARY_LEN],
     pub logical_parts: [Option<Partition>; LOGICAL_LEN],
 }
@@ -70,7 +68,7 @@ impl Disk {
 
     pub fn select(&self) {
         let mut dev = BIT_DEV_MBS | BIT_DEV_LBA;
-        dev |= self.dev_no;
+        dev |= if self.dev_no > 0 { BIT_DEV_DEV } else { 0 };
         let ch = self.ide();
         out_b(ch.reg_dev(), dev);
     }
@@ -96,7 +94,7 @@ impl Disk {
         // read a section from disk
         self.read_secs(&mut buf, 1);
 
-        let mut w = crate::asm::Writer{};
+        let mut w = crate::asm::Writer {};
         use super::DiskInfo;
         c_print!("sn = ");
         buf.write_sn(&mut w);
@@ -131,6 +129,59 @@ impl Disk {
         assert!(buf.len() >= bytes, "size of buf {} < bytes {}", buf.len(), bytes);
         let b = unsafe { core::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u16, bytes / 2) };
         crate::asm::in_sw(ch.reg_data(), b);
+    }
+
+    pub fn ide_read(&self, lba: u32, buf: &mut [u8], sec_n: usize) {
+        assert!(lba < MAX_LBA, "lba {} overflow", lba);
+        assert!(buf.len() >= sec_n * SEC_SIZE, "buf.len() {} < sec_bytes {}", buf.len(), sec_n * SEC_SIZE);
+
+        let ch = self.ide();
+
+        let gd = ch.lock.lock();
+        c_println!("guard get");
+        self.select();
+
+        let mut dones: usize = 0;
+
+        while dones < sec_n {
+            // get at most 256 sectors every command
+            let todo = (sec_n - dones).min(256);
+
+            self.select_sec(lba + dones as u32, todo as u8);
+            ch.cmd_out(CMD_READ_SEC);
+            c_println!("disk done p()");
+            ch.disk_done.p();
+            c_println!("disk done v()");
+
+            if !self.busy_wait(BUSY_WAITING_MILS) {
+                panic!("busy wait failed for device {}", self.name());
+            }
+
+            // read into buffer
+            self.read_secs(&mut buf[dones * SEC_SIZE..], todo as u8);
+            dones += todo;
+        }
+
+        c_println!("read done");
+    }
+
+    fn select_sec(&self, lba: u32, sec_n: u8) {
+        let ch = self.ide();
+
+        // read 256 sector if sec_n = 0
+        out_b(ch.reg_sec_n(), sec_n);
+        ch.out_lba(self.dev_no, lba);
+    }
+
+    fn part_scan(&mut self) {
+        for x in self.primary_parts.iter_mut() {
+            *x = None;
+        }
+        for x in self.logical_parts.iter_mut() {
+            *x = None;
+        }
+        let mut boot: [u8; SEC_SIZE] = [0u8; SEC_SIZE];
+        self.ide_read(0, &mut boot, 1);
     }
 }
 
@@ -169,6 +220,22 @@ impl IdeChannel {
         self.port
     }
 
+    pub fn reg_sec_n(&self) -> u16 {
+        self.port + 2
+    }
+
+    #[inline]
+    pub fn out_lba(&self, dev_no: u8, lba: u32) {
+        out_b(self.port + 3, lba as u8);
+        out_b(self.port + 4, (lba >> 8) as u8);
+        out_b(self.port + 5, (lba >> 16) as u8);
+        out_b(self.port + 6,
+              // write lba 24~27 to 0~3 of
+              BIT_DEV_MBS | BIT_DEV_LBA | if dev_no > 0 { BIT_DEV_DEV } else { 0 } |
+                  (lba >> 24 & 0xf) as u8,
+        );
+    }
+
     // send command to the channel
     pub fn cmd_out(&mut self, cmd: u8) {
         self.expecting = true;
@@ -203,7 +270,7 @@ pub fn init() {
             c_println!("before format args");
         }
 
-        let mut sw = SliceWriter(&mut ch.name);
+        let mut sw = SliceWriter::new(&mut ch.name);
         write!(sw, "ide-{}", ch_no);
 
         if DEBUG {
@@ -235,10 +302,15 @@ pub fn init() {
             let hd = &mut ch.devices[dev_no];
             hd.dev_no = dev_no as u8;
             hd.ide = ch_p;
-            let mut sw = SliceWriter(&mut hd.name);
+            let mut sw = SliceWriter::new(&mut hd.name);
             write!(sw, "sd{}", (b'a' + ch_no as u8 * 2 + dev_no as u8) as char);
+            println!("hd = {}", hd.name());
 
             hd.init();
+
+            if dev_no != 0 {
+                hd.part_scan();
+            }
         }
     }
 }

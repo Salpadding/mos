@@ -1,9 +1,11 @@
 use core::fmt::Write;
+use crate::fs::ide::PRIMARY_LEN;
 
 pub mod ide;
 mod ctl;
 
 const DISKS_OFF: usize = 0x475;
+const PT_OFF: usize = 446;
 
 pub fn disks() -> u8 {
     unsafe {
@@ -21,6 +23,36 @@ pub trait DiskInfo {
     }
 
     fn sectors(&self) -> usize;
+}
+
+// partition table entry
+#[repr(packed)]
+#[derive(Debug)]
+pub struct PTE {
+    boot: u8,
+    start_head: u8,
+    start_sec: u8,
+    start_cyl: u8,
+    fs_type: u8,
+    end_head: u8,
+    end_sec: u8,
+    end_cyl: u8,
+
+    start_lba: u32,
+    sec_n: u32,
+}
+
+pub trait BootSec {
+    fn partition_table(&self) -> &[PTE];
+}
+
+impl BootSec for [u8] {
+    fn partition_table(&self) -> &[PTE] {
+        let p = unsafe { self.as_ptr().add(PT_OFF) as *const PTE };
+        unsafe {
+            core::slice::from_raw_parts(p, PRIMARY_LEN)
+        }
+    }
 }
 
 impl DiskInfo for [u8] {
