@@ -2,9 +2,22 @@ use rlib::link::LinkedList;
 
 use crate::{c_println, print, println};
 use crate::int::{disable_int, set_int};
-use crate::thread::{current_pcb, PCB, schedule, Status};
+use crate::thread::{current_pcb, PCB, schedule, Status, ticks};
 use crate::thread::data::{all, ready};
 use crate::thread::PCB_PADDING;
+use crate::timer::MIL_SECONDS_PER_INT;
+
+pub fn sleep_ticks(t: usize) {
+    let start = *ticks();
+    while *ticks() - start < t as u32 {
+        th_yield();
+    }
+}
+
+pub fn sleep_mils(t: u32) {
+    let ticks = t / MIL_SECONDS_PER_INT;
+    sleep_ticks(ticks as usize);
+}
 
 #[repr(C)]
 pub struct Semaphore {
@@ -41,6 +54,16 @@ impl Guard {
         let l: &'static mut Lock = cst!(p);
         l.unlock();
     }
+}
+
+pub fn th_yield() {
+   let cur = current_pcb();
+    let old = disable_int();
+    assert!(!ready().raw_iter().any(|x| x == cur.off()), "cur shouldn't in ready");
+    ready().append(cur);
+    cur.status = Status::Ready;
+    schedule("yield");
+    set_int(old);
 }
 
 impl Lock {
@@ -164,3 +187,4 @@ pub fn unblock(pcb: &'static mut PCB) {
     rd.push_head(pcb);
     set_int(old);
 }
+

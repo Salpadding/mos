@@ -141,8 +141,8 @@ fn init_pic() {
     out_b(PIC_S_DATA, 0x02);
     out_b(PIC_S_DATA, 0x01);
 
-    out_b(PIC_M_DATA, 0xfe);
-    out_b(PIC_S_DATA, 0xff);
+    out_b(PIC_M_DATA, 0xf8);
+    out_b(PIC_S_DATA, 0xbf);
 }
 
 /// initialize interrupt descriptor table

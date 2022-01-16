@@ -17,6 +17,8 @@ use crate::mem::alloc::v2p;
 use crate::mem::arena::{free, malloc};
 use crate::mem::page::OS_MEM_OFF;
 use crate::mem::Pool;
+use crate::thread::Status;
+use crate::thread::sync::{block, sleep_mils};
 
 pub const S_LOCK_SZ: usize = 1024;
 
@@ -87,7 +89,7 @@ pub extern "C" fn _start() {
 
         // increase interrupt frequency
         crate::timer::init();
-        crate::thread::user::create(th_print_d, 15, "th0", 0xff);
+        // crate::thread::user::create(th_print_d, 15, "th0", 0xff);
 
         // initialize syscall
         crate::sys::init();
@@ -108,8 +110,12 @@ pub extern "C" fn _start() {
         free(p);
         free(p1);
 
-        c_println!("disks = {}", crate::fs::diks());
-        bk!();
+        c_println!("disks = {}", crate::fs::disks());
+
+        loop {
+            println!("hello from init thread");
+            sleep_mils(1000);
+        }
     }
 }
 

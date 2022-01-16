@@ -12,6 +12,7 @@ use crate::mem::PageTable;
 use crate::thread::data::{all, ready};
 use crate::thread::reg::IntCtx;
 use crate::thread::Status::{Ready, Running};
+use crate::thread::sync::{block, unblock};
 use crate::thread::tss::esp0;
 
 use self::reg::KernelCtx;
@@ -44,6 +45,12 @@ const STACK_MAGIC: u32 = 0x238745ea;
 pub const PCB_SIZE: usize = PCB_PAGES * PAGE_SIZE;
 pub const PCB_PADDING: usize = 128;
 
+static mut IDLE: usize = 0;
+
+pub fn idle_thread() -> &'static mut PCB {
+    cst!(IDLE)
+}
+
 static mut TICKS: u32 = 0;
 
 pub fn ticks() -> &'static mut u32 {
@@ -60,6 +67,15 @@ macro_rules! cur_pcb {
     };
 }
 
+/// idle thread
+pub extern "C" fn idle(args: usize) {
+   loop {
+       block(Status::Blocked);
+       unsafe { asm!("sti", "hlt"); }
+   }
+}
+
+/// entry of kernel thread
 pub extern "C" fn entry(fun: Routine, args: usize) {
     crate::asm::sti();
     fun(args);
@@ -195,12 +211,13 @@ pub fn current_pcb() -> &'static mut PCB {
     cst!(p)
 }
 
-pub fn new_thread(rt: Routine, args: usize, name: &str, priority: u8) {
+pub fn new_thread(rt: Routine, args: usize, name: &str, priority: u8) -> &'static mut PCB {
     let pcb_off = pg_alloc(Pool::KERNEL, 1, true).unwrap();
     let pcb = PCB::new(name, priority, pcb_off);
     pcb.init(entry, rt, args);
     ready().append(pcb);
     all().append(pcb);
+    pcb
 }
 
 pub fn init() {
@@ -209,6 +226,9 @@ pub fn init() {
     // add main thread to all list
     let main = current_pcb();
     all().append(main);
+
+    // create idle thread
+    unsafe { IDLE = new_thread(idle, 0, "idle", DEFAULT_PRIORITY / 2) as *const _ as usize };
 
     // register handler
     crate::int::register(0x20, handle_int);
@@ -248,7 +268,11 @@ pub fn schedule(reason: &str) {
         rd.append(cur);
     }
 
-    assert!(!rd.is_empty(), "ready is empty");
+    if rd.is_empty() {
+        // wake idle thread if ready is empty
+        unblock(idle_thread());
+    }
+
     let n = rd.pop_head().unwrap();
     n.status = Status::Running;
 
