@@ -138,6 +138,7 @@ extern "C" fn th_print_d(d: usize) {
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
+    crate::int::disable_int();
     c_println!("{:#?}", _info);
     loop {}
 }

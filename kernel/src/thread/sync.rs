@@ -78,7 +78,7 @@ impl Lock {
     pub fn init(&mut self) {
         self.holder = None;
         self.sem.value = 1;
-        self.sem.waiters.init(0, 1);
+        self.sem.waiters.init(2, 3);
         self.repeats = 0;
     }
 

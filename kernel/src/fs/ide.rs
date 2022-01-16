@@ -85,6 +85,7 @@ impl Disk {
         ch.cmd_out(CMD_ID);
 
         // block current thread until disk ready
+        c_println!("ch.disk_done.p()");
         ch.disk_done.p();
 
         if !self.busy_wait(BUSY_WAITING_MILS) {
@@ -99,7 +100,11 @@ impl Disk {
         use super::DiskInfo;
         c_print!("sn = ");
         buf.write_sn(&mut w);
+        c_print!("module = ");
+        buf.write_md(&mut w);
 
+        c_println!("sectors = {}", buf.sectors());
+        c_println!("cap = {} MB", buf.sectors() * 512 / 1024 / 1024);
     }
 
     // wait until disk ready
@@ -109,10 +114,10 @@ impl Disk {
 
         while mils > 0 {
             if crate::asm::in_b(st_p) & BIT_STAT_BSY == 0 {
-                return crate::asm::in_b(st_p) & BIT_STAT_DRQ == 0;
+                return crate::asm::in_b(st_p) & BIT_STAT_DRQ != 0;
             }
             sleep_mils(10);
-            mils -= mils.min(10);
+            mils -= 10;
         }
         false
     }
@@ -220,7 +225,7 @@ pub fn init() {
 
         // initialize the value as zero, call v() in interrupt handler
         ch.disk_done.value = 0;
-        ch.disk_done.waiters.init(0, 1);
+        ch.disk_done.waiters.init(2, 3);
 
         register(ch.int_vec, int_handle);
 
@@ -239,4 +244,19 @@ pub fn init() {
 }
 
 
-pub fn int_handle(ctx: &'static mut IntCtx) {}
+pub fn int_handle(ctx: &'static mut IntCtx) {
+    assert!(ctx.vec == 0x2e || ctx.vec == 0x2f, "ide::int_handle(): invalid vec");
+    c_println!("ide::int_handle: {}", ctx.vec);
+    let ch_no = ctx.vec - 0x2e;
+    let chs = channels();
+    let ch = &mut chs[ch_no as usize];
+    assert_eq!(ch.int_vec, ctx.vec as u16, "int vec");
+
+    if !ch.expecting {
+        return;
+    }
+
+    ch.expecting = false;
+    ch.disk_done.v();
+    crate::asm::in_b(ch.reg_status());
+}
