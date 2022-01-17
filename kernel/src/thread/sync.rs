@@ -7,6 +7,27 @@ use crate::thread::data::{all, ready};
 use crate::thread::PCB_PADDING;
 use crate::timer::MIL_SECONDS_PER_INT;
 
+#[repr(C)]
+pub struct SpinLock {
+    data: u32
+}
+
+impl SpinLock {
+    pub fn lock(&self) {
+        let p = self as *const _ as usize;
+        unsafe {
+            asm!("2:", "xchg eax, [{0}]", "test eax, eax", "jnz 2b", in(reg) p, in("eax") 1)
+        }
+    }
+
+    pub fn unlock(&self) {
+        let p = self as *const _ as usize;
+        unsafe {
+            asm!("xchg eax, [{0}]", in(reg) p, in("eax") 0);
+        }
+    }
+}
+
 pub fn sleep_ticks(t: usize) {
     let start = *ticks();
     while *ticks() - start < t as u32 {

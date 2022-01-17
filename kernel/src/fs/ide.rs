@@ -83,7 +83,7 @@ impl Disk {
         ch.cmd_out(CMD_ID);
 
         // block current thread until disk ready
-        c_println!("ch.disk_done.p()");
+        c_println!("ch {} disk_done.p()", ch.name());
         ch.disk_done.p();
 
         if !self.busy_wait(BUSY_WAITING_MILS) {
@@ -149,9 +149,9 @@ impl Disk {
 
             self.select_sec(lba + dones as u32, todo as u8);
             ch.cmd_out(CMD_READ_SEC);
-            c_println!("disk done p()");
+            c_println!("ch {} done p()", ch.name());
             ch.disk_done.p();
-            c_println!("disk done v()");
+            c_println!("return from ch {} done p()", ch.name());
 
             if !self.busy_wait(BUSY_WAITING_MILS) {
                 panic!("busy wait failed for device {}", self.name());
@@ -329,6 +329,7 @@ pub fn int_handle(ctx: &'static mut IntCtx) {
     }
 
     ch.expecting = false;
+    c_println!("ch {} disk_done v()", ch.name());
     ch.disk_done.v();
     crate::asm::in_b(ch.reg_status());
 }

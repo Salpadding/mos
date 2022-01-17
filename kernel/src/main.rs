@@ -113,8 +113,12 @@ pub extern "C" fn _start() {
         c_println!("disks = {}", crate::fs::disks());
         crate::fs::ide::init();
 
+
         loop {
+            let lk = crate::asm::lock();
+            lk.lock();
             println!("hello from init thread");
+            lk.unlock();
             sleep_mils(1000);
         }
     }

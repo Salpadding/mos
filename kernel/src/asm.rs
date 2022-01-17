@@ -20,6 +20,11 @@ static mut SWITCH_ADDR: usize = 0;
 static mut INT_EXIT: usize = 0;
 static mut SYS: usize = 0;
 
+use rlib::alloc_static;
+use crate::thread::sync::SpinLock;
+
+alloc_static!(LOCK, lock, SpinLock);
+
 pub fn int_exit() -> usize {
     unsafe { INT_EXIT }
 }
