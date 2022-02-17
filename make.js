@@ -54,8 +54,8 @@ function gd({ limit, base, rw, executable, system, mode, pri, scale_4k }) {
     let g = new BigUint64Array(4)
 
     let base_high = (base & 0xff000000n) >> 24n
-    g[0] = limit & 0xffffn;
-    g[1] = base & 0xffffn;
+    g[0] = limit & 0xffffn
+    g[1] = base & 0xffffn
     g[2] |= (base & 0xff0000n) >> 16n
 
     let acc = 1n << 7n
