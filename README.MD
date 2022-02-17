@@ -64,16 +64,6 @@ bximage
 # 512
 # 64
 # build/disk.img
-
-
-bximage
-# 1
-# hd
-# flat
-# 512
-# 64
-# build/disk-fs.img
-mkdir build
 ```
 
 ```sh
@@ -90,7 +80,7 @@ node make.js
 4. run bochs
 
 ```sh
-bochs
+./bochs
 # return
 # type c to continue
 ```
