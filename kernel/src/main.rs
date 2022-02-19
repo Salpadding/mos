@@ -111,14 +111,14 @@ pub extern "C" fn _start() {
         free(p1);
 
         c_println!("disks = {}", crate::fs::disks());
-        crate::fs::ide::init();
+        // crate::fs::ide::init();
 
 
         loop {
-            let lk = crate::asm::lock();
-            lk.lock();
+            // let lk = crate::asm::lock();
+            // lk.lock();
             println!("hello from init thread");
-            lk.unlock();
+            // lk.unlock();
             sleep_mils(1000);
         }
     }

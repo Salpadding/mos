@@ -17,7 +17,7 @@ use crate::thread::tss::esp0;
 
 use self::reg::KernelCtx;
 
-pub const DEBUG: bool = false;
+pub const DEBUG: bool = true;
 
 macro_rules! debug {
     ($($arg:tt)*) => {
@@ -269,6 +269,7 @@ pub fn schedule(reason: &str) {
     }
 
     if rd.is_empty() {
+        debug!("unblock idle thread");
         // wake idle thread if ready is empty
         unblock(idle_thread());
     }

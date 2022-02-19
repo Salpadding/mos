@@ -78,11 +78,17 @@ impl Guard {
 }
 
 pub fn th_yield() {
-   let cur = current_pcb();
+    let cur = current_pcb();
     let old = disable_int();
     assert!(!ready().raw_iter().any(|x| x == cur.off()), "cur shouldn't in ready");
+    let rd = ready();
+    let em = rd.is_empty();
     ready().append(cur);
     cur.status = Status::Ready;
+
+    if(em) {
+        unblock(crate::thread::idle_thread());
+    }
     schedule("yield");
     set_int(old);
 }

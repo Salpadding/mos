@@ -2,6 +2,7 @@ use rlib::{alloc_static, as_str, div_up};
 use rlib::args::SliceWriter;
 use rlib::link::{LinkedList, Node};
 
+use crate::thread::current_pcb;
 use crate::{c_print, c_println, println, sleep_mils};
 use crate::asm::out_b;
 use crate::err::SE;
@@ -132,6 +133,7 @@ impl Disk {
     }
 
     pub fn ide_read(&self, lba: u32, buf: &mut [u8], sec_n: usize) {
+        c_println!("ide read lba = {}, sec_n = {}", lba, sec_n);
         assert!(lba < MAX_LBA, "lba {} overflow", lba);
         assert!(buf.len() >= sec_n * SEC_SIZE, "buf.len() {} < sec_bytes {}", buf.len(), sec_n * SEC_SIZE);
 
@@ -160,6 +162,7 @@ impl Disk {
             // read into buffer
             self.read_secs(&mut buf[dones * SEC_SIZE..], todo as u8);
             dones += todo;
+            c_println!("dones = {} now ", dones);
         }
 
         c_println!("read done");
@@ -304,12 +307,16 @@ pub fn init() {
             hd.ide = ch_p;
             let mut sw = SliceWriter::new(&mut hd.name);
             write!(sw, "sd{}", (b'a' + ch_no as u8 * 2 + dev_no as u8) as char);
-            println!("hd = {}", hd.name());
+            c_println!("hd = {}", hd.name());
 
             hd.init();
 
+            c_println!("hd {} init() success", hd.name());
+
             if dev_no != 0 {
+                c_println!("before hd {} part scan", hd.name());
                 hd.part_scan();
+                c_println!("hd {} part_scan() success", hd.name());
             }
         }
     }
@@ -330,6 +337,7 @@ pub fn int_handle(ctx: &'static mut IntCtx) {
 
     ch.expecting = false;
     c_println!("ch {} disk_done v()", ch.name());
+    c_println!("waiters = {}", ch.disk_done.waiters.first().map(|x| x.name()).unwrap_or(""));
     ch.disk_done.v();
     crate::asm::in_b(ch.reg_status());
 }
