@@ -133,6 +133,7 @@ impl Disk {
     }
 
     pub fn ide_read(&self, lba: u32, buf: &mut [u8], sec_n: usize) {
+        let cur = "init";
         c_println!("ide read lba = {}, sec_n = {}", lba, sec_n);
         assert!(lba < MAX_LBA, "lba {} overflow", lba);
         assert!(buf.len() >= sec_n * SEC_SIZE, "buf.len() {} < sec_bytes {}", buf.len(), sec_n * SEC_SIZE);
@@ -151,9 +152,9 @@ impl Disk {
 
             self.select_sec(lba + dones as u32, todo as u8);
             ch.cmd_out(CMD_READ_SEC);
-            c_println!("ch {} done p()", ch.name());
+            c_println!("cur {} ch {} done p()", cur, ch.name());
             ch.disk_done.p();
-            c_println!("return from ch {} done p()", ch.name());
+            c_println!("cur {} return from ch {} done p()", cur, ch.name());
 
             if !self.busy_wait(BUSY_WAITING_MILS) {
                 panic!("busy wait failed for device {}", self.name());
@@ -336,8 +337,14 @@ pub fn int_handle(ctx: &'static mut IntCtx) {
     }
 
     ch.expecting = false;
-    c_println!("ch {} disk_done v()", ch.name());
-    c_println!("waiters = {}", ch.disk_done.waiters.first().map(|x| x.name()).unwrap_or(""));
+    c_println!("ch {} disk v()", ch.name());
     ch.disk_done.v();
+
+    let rd = crate::thread::data::ready();
+
+    c_println!("ready = ");
+    for p in rd.iter() {
+        c_println!("{} {} {:?}", p.name(), p.ticks, p.status);
+    }
     crate::asm::in_b(ch.reg_status());
 }

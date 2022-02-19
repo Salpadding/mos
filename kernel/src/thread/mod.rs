@@ -1,23 +1,23 @@
 use rlib::alloc_static;
 use rlib::link::{LinkedList, Node};
 
-use crate::{c_println, Pool, print, println};
-use crate::asm::{REG_CTX_LEN, SELECTOR_K_DATA, switch};
+use crate::asm::{switch, REG_CTX_LEN, SELECTOR_K_DATA};
 use crate::err::SE;
-use crate::mem::{fill_zero, PAGE_SIZE, pg_alloc, PT_LEN, VPool};
 use crate::mem::arena::{BlkDesc, DESC_CNT};
 use crate::mem::page::PDE_START;
 use crate::mem::PagePool;
 use crate::mem::PageTable;
+use crate::mem::{fill_zero, pg_alloc, VPool, PAGE_SIZE, PT_LEN};
 use crate::thread::data::{all, ready};
 use crate::thread::reg::IntCtx;
-use crate::thread::Status::{Ready, Running};
 use crate::thread::sync::{block, unblock};
 use crate::thread::tss::esp0;
+use crate::thread::Status::{Ready, Running};
+use crate::{c_println, print, println, Pool};
 
 use self::reg::KernelCtx;
 
-pub const DEBUG: bool = true;
+pub const DEBUG: bool = false;
 
 macro_rules! debug {
     ($($arg:tt)*) => {
@@ -28,11 +28,11 @@ macro_rules! debug {
     };
 }
 
-mod data;
+pub mod data;
 pub mod reg;
 pub mod sync;
-pub mod user;
 pub mod tss;
+pub mod user;
 
 pub type Routine = extern "C" fn(args: usize);
 pub type Entry = extern "C" fn(rt: Routine, args: usize);
@@ -69,10 +69,14 @@ macro_rules! cur_pcb {
 
 /// idle thread
 pub extern "C" fn idle(args: usize) {
-   loop {
-       block(Status::Blocked);
-       unsafe { asm!("sti", "hlt"); }
-   }
+    loop {
+        block(Status::Blocked);
+        //c_println!("hlt0");
+        unsafe {
+            asm!("sti", "hlt");
+        }
+        //c_println!("hlt1");
+    }
 }
 
 /// entry of kernel thread
@@ -89,7 +93,7 @@ pub enum Status {
     Blocked,
     Waiting,
     Hanging,
-    Died
+    Died,
 }
 
 // ready -> running
@@ -97,9 +101,9 @@ pub enum Status {
 pub struct PCB {
     stack: usize,
     pointers: [usize; 4],
-    status: Status,
+    pub status: Status,
     priority: u8,
-    ticks: u8,
+    pub ticks: u8,
     elapsed_ticks: u32,
     name_len: u8,
     name_buf: [u8; 16],
@@ -124,11 +128,7 @@ impl Node for PCB {
 }
 
 impl PCB {
-    pub fn new(
-        name: &str,
-        priority: u8,
-        off: usize,
-    ) -> &'static mut Self {
+    pub fn new(name: &str, priority: u8, off: usize) -> &'static mut Self {
         let p: &'static mut PCB = cst!(off);
         let len = p.name_buf.len().min(name.as_bytes().len());
 
@@ -195,12 +195,10 @@ impl PCB {
     }
 
     pub fn page_dir(&self) -> Option<PageTable> {
-        if self.pd == 0 { None }  else {
-            Some(
-                unsafe {
-                    core::slice::from_raw_parts_mut(self.pd as *mut _, PT_LEN)
-                }
-            )
+        if self.pd == 0 {
+            None
+        } else {
+            Some(unsafe { core::slice::from_raw_parts_mut(self.pd as *mut _, PT_LEN) })
         }
     }
 }
@@ -261,23 +259,29 @@ pub fn schedule(reason: &str) {
     let off = cur.off();
     let rd = ready();
 
+    //c_println!("rd.is_empty() = {:?}", rd.is_empty());
     if cur.status == Status::Running {
         assert!(!rd.raw_iter().any(|x| x == off), "thread in ready");
         cur.status = Status::Ready;
         cur.ticks = cur.priority;
         rd.append(cur);
-    }
+    } 
 
     if rd.is_empty() {
-        debug!("unblock idle thread");
         // wake idle thread if ready is empty
         unblock(idle_thread());
     }
 
     let n = rd.pop_head().unwrap();
+    //c_println!("next = {}", n.name());
     n.status = Status::Running;
 
-    debug!("switch from {} to {} reason = {}", cur.name(), n.name(), reason);
+    debug!(
+        "switch from {} to {} reason = {}",
+        cur.name(),
+        n.name(),
+        reason
+    );
 
     let pd: usize = if n.user() { n.pd } else { PDE_START };
 
@@ -288,5 +292,6 @@ pub fn schedule(reason: &str) {
     if n.user() {
         *esp0() = (n.off() + PCB_SIZE) as u32;
     }
+
     switch(cur.off(), n.off());
 }
